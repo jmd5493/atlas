@@ -1,0 +1,102 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { getCurrentUser } from "@/lib/auth/session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type ClientLogRow = {
+  id: string;
+  exercise_name: string;
+  sets: number;
+  reps: number;
+  weight: number | null;
+  notes: string | null;
+  performed_on: string;
+  created_at: string;
+  clients: {
+    first_name: string;
+    last_name: string;
+  } | null;
+  workout_programs: {
+    title: string;
+  } | null;
+};
+
+export default async function ClientLogsPage() {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    redirect("/login");
+  }
+
+  if (currentUser.role !== "trainer") {
+    redirect("/dashboard");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: logs } = await supabase
+    .from("exercise_logs")
+    .select("id, exercise_name, sets, reps, weight, notes, performed_on, created_at, clients(first_name,last_name), workout_programs(title)")
+    .eq("trainer_id", currentUser.user.id)
+    .order("performed_on", { ascending: false })
+    .order("created_at", { ascending: false })
+    .returns<ClientLogRow[]>();
+
+  const safeLogs = logs ?? [];
+
+  return (
+    <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
+        <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-amber-700">
+              Trainer review
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              Client workout logs
+            </h1>
+            <p className="mt-2 text-sm text-stone-600">
+              Review client-submitted exercise logs.
+            </p>
+          </div>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+          >
+            Back to dashboard
+          </Link>
+        </header>
+
+        {safeLogs.length === 0 ? (
+          <div className="mt-6 rounded-xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
+            No client logs yet.
+          </div>
+        ) : (
+          <div className="mt-6 space-y-3">
+            {safeLogs.map((log) => (
+              <article key={log.id} className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-base font-semibold text-slate-900">{log.exercise_name}</p>
+                  <p className="text-xs text-stone-500">{log.performed_on}</p>
+                </div>
+                <p className="mt-1 text-sm text-stone-600">
+                  {log.sets} sets × {log.reps} reps
+                  {log.weight !== null ? ` @ ${log.weight}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-stone-500">
+                  Client: {log.clients?.first_name} {log.clients?.last_name}
+                </p>
+                <p className="mt-1 text-xs text-stone-500">
+                  Program: {log.workout_programs?.title ?? "Unassigned"}
+                </p>
+                {log.notes ? (
+                  <p className="mt-2 text-sm leading-6 text-stone-700">{log.notes}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
