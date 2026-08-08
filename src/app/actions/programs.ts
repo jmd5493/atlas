@@ -14,6 +14,12 @@ type ParsedExercise = {
   notes: string | null;
 };
 
+function buildErrorRedirect(basePath: string, status: string, code?: string, message?: string) {
+  const errorCode = encodeURIComponent(code ?? "unknown");
+  const errorMessage = encodeURIComponent(message ?? "Unknown error");
+  return `${basePath}?status=${status}&errorCode=${errorCode}&errorMessage=${errorMessage}`;
+}
+
 function isPositiveWholeNumber(value: number) {
   return Number.isInteger(value) && value > 0;
 }
@@ -211,9 +217,14 @@ export async function createWorkoutProgram(formData: FormData) {
     .single<{ id: string }>();
 
   if (programError || !program) {
-    const errorCode = encodeURIComponent(programError?.code ?? "unknown");
-    const errorMessage = encodeURIComponent(programError?.message ?? "Unknown program insert error");
-    redirect(`/dashboard/programs?status=create-failed&errorCode=${errorCode}&errorMessage=${errorMessage}`);
+    redirect(
+      buildErrorRedirect(
+        "/dashboard/programs",
+        "create-failed",
+        programError?.code,
+        programError?.message ?? "Unknown program insert error",
+      ),
+    );
     return;
   }
 
@@ -247,4 +258,88 @@ export async function createWorkoutProgram(formData: FormData) {
 
   revalidatePath("/dashboard/programs");
   redirect("/dashboard/programs?status=created");
+}
+
+export async function updateWorkoutProgram(formData: FormData) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser || currentUser.role !== "trainer") {
+    redirect("/dashboard/programs?status=forbidden");
+    return;
+  }
+
+  const programId = String(formData.get("programId") ?? "").trim();
+  const clientId = String(formData.get("clientId") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim();
+  const descriptionInput = String(formData.get("description") ?? "").trim();
+  const startDate = String(formData.get("startDate") ?? "").trim();
+  const durationWeeksInput = String(formData.get("durationWeeks") ?? "4").trim();
+
+  if (!programId || !clientId || !title || !startDate) {
+    redirect("/dashboard/programs?status=missing-fields");
+    return;
+  }
+
+  const durationWeeks = Number.parseInt(durationWeeksInput, 10);
+  if (Number.isNaN(durationWeeks) || durationWeeks <= 0 || durationWeeks > 52) {
+    redirect("/dashboard/programs?status=invalid-duration");
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("workout_programs")
+    .update({
+      client_id: clientId,
+      title,
+      description: descriptionInput.length > 0 ? descriptionInput : null,
+      start_date: startDate,
+      duration_weeks: durationWeeks,
+    })
+    .eq("id", programId)
+    .eq("trainer_id", currentUser.user.id);
+
+  if (error) {
+    redirect(buildErrorRedirect("/dashboard/programs", "update-failed", error.code, error.message));
+    return;
+  }
+
+  revalidatePath("/dashboard/programs");
+  revalidatePath("/dashboard/workouts");
+  revalidatePath("/dashboard/logs");
+  revalidatePath("/dashboard/client-logs");
+  redirect("/dashboard/programs?status=updated");
+}
+
+export async function deleteWorkoutProgram(formData: FormData) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser || currentUser.role !== "trainer") {
+    redirect("/dashboard/programs?status=forbidden");
+    return;
+  }
+
+  const programId = String(formData.get("programId") ?? "").trim();
+  if (!programId) {
+    redirect("/dashboard/programs?status=delete-failed");
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("workout_programs")
+    .delete()
+    .eq("id", programId)
+    .eq("trainer_id", currentUser.user.id);
+
+  if (error) {
+    redirect(buildErrorRedirect("/dashboard/programs", "delete-failed", error.code, error.message));
+    return;
+  }
+
+  revalidatePath("/dashboard/programs");
+  revalidatePath("/dashboard/workouts");
+  revalidatePath("/dashboard/logs");
+  revalidatePath("/dashboard/client-logs");
+  redirect("/dashboard/programs?status=deleted");
 }

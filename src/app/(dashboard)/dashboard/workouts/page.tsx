@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { createExerciseLog } from "@/app/actions/logs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type WorkoutsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
 type LinkedClientRow = {
   id: string;
@@ -36,7 +41,45 @@ type ProgramRow = {
   workout_program_days: DayRow[];
 };
 
-export default async function WorkoutsPage() {
+function getStatusMessage(
+  status: string | undefined,
+  errorCode: string | undefined,
+  errorMessage: string | undefined,
+) {
+  switch (status) {
+    case "created":
+      return { tone: "success", text: "Exercise log saved from workout plan." };
+    case "missing-fields":
+      return { tone: "error", text: "Please fill in sets, reps, and date for the exercise log." };
+    case "invalid-numbers":
+      return { tone: "error", text: "Sets and reps must be positive whole numbers." };
+    case "not-linked":
+      return {
+        tone: "error",
+        text: "Your auth user is not linked to a client record yet. Ask trainer to link it first.",
+      };
+    case "create-failed":
+      return {
+        tone: "error",
+        text: `Log creation failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+      };
+    case "forbidden":
+      return { tone: "error", text: "Only client accounts can add exercise logs." };
+    default:
+      return null;
+  }
+}
+
+export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) {
+  const resolvedParams = searchParams ? await searchParams : undefined;
+  const statusValue = resolvedParams?.status;
+  const status = Array.isArray(statusValue) ? statusValue[0] : statusValue;
+  const errorCodeValue = resolvedParams?.errorCode;
+  const errorCode = Array.isArray(errorCodeValue) ? errorCodeValue[0] : errorCodeValue;
+  const errorMessageValue = resolvedParams?.errorMessage;
+  const errorMessage = Array.isArray(errorMessageValue) ? errorMessageValue[0] : errorMessageValue;
+  const statusMessage = getStatusMessage(status, errorCode, errorMessage);
+
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
@@ -100,14 +143,37 @@ export default async function WorkoutsPage() {
             <p className="mt-2 text-sm text-stone-600">
               Viewing programs for {linkedClient.first_name} {linkedClient.last_name}
             </p>
+            <p className="mt-1 text-xs text-stone-500">
+              Log each exercise directly from this page, or use the full log history page.
+            </p>
           </div>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
-          >
-            Back to dashboard
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/dashboard/logs"
+              className="inline-flex items-center justify-center rounded-full border border-emerald-300 px-5 py-3 text-sm font-medium text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50"
+            >
+              Full log history
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+            >
+              Back to dashboard
+            </Link>
+          </div>
         </header>
+
+        {statusMessage ? (
+          <div
+            className={
+              statusMessage.tone === "success"
+                ? "mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                : "mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            }
+          >
+            {statusMessage.text}
+          </div>
+        ) : null}
 
         {safePrograms.length === 0 ? (
           <div className="mt-6 rounded-xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
@@ -142,7 +208,7 @@ export default async function WorkoutsPage() {
                               .slice()
                               .sort((a, b) => a.sort_order - b.sort_order)
                               .map((exercise) => (
-                                <li key={exercise.id} className="rounded-lg bg-stone-50 px-3 py-2">
+                                <li key={exercise.id} className="rounded-lg bg-stone-50 px-3 py-3">
                                   <p className="font-medium text-slate-900">{exercise.exercise_name}</p>
                                   <p className="text-stone-600">
                                     {exercise.sets} sets × {exercise.reps} reps
@@ -151,6 +217,88 @@ export default async function WorkoutsPage() {
                                   {exercise.notes ? (
                                     <p className="mt-1 text-xs text-stone-500">{exercise.notes}</p>
                                   ) : null}
+
+                                  <form action={createExerciseLog} className="mt-3 grid gap-2 rounded-lg border border-stone-200 bg-white p-3">
+                                    <input type="hidden" name="redirectTo" value="/dashboard/workouts" />
+                                    <input type="hidden" name="workoutProgramId" value={program.id} />
+                                    <input type="hidden" name="exerciseName" value={exercise.exercise_name} />
+
+                                    <div className="grid gap-2 sm:grid-cols-4">
+                                      <div className="space-y-1">
+                                        <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`sets-${exercise.id}`}>
+                                          Sets
+                                        </label>
+                                        <input
+                                          id={`sets-${exercise.id}`}
+                                          name="sets"
+                                          type="number"
+                                          min={1}
+                                          defaultValue={exercise.sets}
+                                          required
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`reps-${exercise.id}`}>
+                                          Reps
+                                        </label>
+                                        <input
+                                          id={`reps-${exercise.id}`}
+                                          name="reps"
+                                          type="number"
+                                          min={1}
+                                          defaultValue={exercise.reps}
+                                          required
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`weight-${exercise.id}`}>
+                                          Weight
+                                        </label>
+                                        <input
+                                          id={`weight-${exercise.id}`}
+                                          name="weight"
+                                          type="number"
+                                          step="0.1"
+                                          defaultValue={exercise.target_weight ?? ""}
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`date-${exercise.id}`}>
+                                          Date
+                                        </label>
+                                        <input
+                                          id={`date-${exercise.id}`}
+                                          name="performedOn"
+                                          type="date"
+                                          defaultValue={new Date().toISOString().slice(0, 10)}
+                                          required
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`notes-${exercise.id}`}>
+                                        Notes (optional)
+                                      </label>
+                                      <input
+                                        id={`notes-${exercise.id}`}
+                                        name="notes"
+                                        placeholder={`Logged from ${day.day_label}`}
+                                        className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                      />
+                                    </div>
+
+                                    <button
+                                      type="submit"
+                                      className="inline-flex w-fit items-center justify-center rounded-full bg-emerald-700 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-600"
+                                    >
+                                      Log this exercise
+                                    </button>
+                                  </form>
                                 </li>
                               ))}
                           </ul>

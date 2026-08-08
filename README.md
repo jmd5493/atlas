@@ -194,15 +194,24 @@ Purpose:
 
 - Enables trainer delete permission on their own client rows under RLS.
 
+### 006 workout program delete policies
+
+File: `supabase/schema/006_workout_program_delete_policies.sql`
+
+Purpose:
+
+- Enables trainer delete permission on workout programs under RLS.
+- Adds delete policies for workout days and exercises for complete program ownership management.
+
 ## Current trainer MVP pages
 
 - `/dashboard/clients`: create and list clients
-- `/dashboard/programs`: create and list workout programs
+- `/dashboard/programs`: create, edit, and delete workout programs
 - `/dashboard/client-logs`: review client workout logs
 
 ## Current client MVP pages
 
-- `/dashboard/workouts`: view assigned programs
+- `/dashboard/workouts`: view assigned program/day/exercises and log each exercise in-place
 - `/dashboard/logs`: create exercise logs and view history
 
 ## Next feature slice
