@@ -93,9 +93,9 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
 
   if (!linkedClient) {
     return (
-      <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
-        <div className="mx-auto w-full max-w-4xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
-          <h1 className="text-2xl font-semibold text-slate-950">Log workouts</h1>
+      <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+        <div className="mx-auto w-full max-w-4xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
+          <h1 className="text-2xl font-semibold text-ink">Log workouts</h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
             Your login is not linked to a client record yet. Ask your trainer to link
             your auth user to your client profile.
@@ -130,14 +130,14 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
   const safeLogs = logs ?? [];
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
+    <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
         <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-700">
               Client logs
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
               Log workouts and history
             </h1>
             <p className="mt-2 text-sm text-stone-600">
@@ -146,7 +146,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
           >
             Back to dashboard
           </Link>
@@ -154,7 +154,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-            <h2 className="text-lg font-semibold text-slate-950">Add workout log</h2>
+            <h2 className="text-lg font-semibold text-ink">Add workout log</h2>
 
             {statusMessage ? (
               <div
@@ -177,7 +177,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                   id="exerciseName"
                   name="exerciseName"
                   required
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
 
@@ -192,7 +192,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                     type="number"
                     min={1}
                     required
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                   />
                 </div>
                 <div className="space-y-2">
@@ -205,7 +205,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                     type="number"
                     min={1}
                     required
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                   />
                 </div>
                 <div className="space-y-2">
@@ -217,7 +217,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                     name="weight"
                     type="number"
                     step="0.1"
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                   />
                 </div>
               </div>
@@ -231,7 +231,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                   name="performedOn"
                   type="date"
                   required
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
 
@@ -242,7 +242,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                 <select
                   id="workoutProgramId"
                   name="workoutProgramId"
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 >
                   <option value="">No program selected</option>
                   {safePrograms.map((program) => (
@@ -261,7 +261,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                   id="notes"
                   name="notes"
                   rows={4}
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
 
@@ -276,7 +276,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
 
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-950">History</h2>
+              <h2 className="text-lg font-semibold text-ink">History</h2>
               <p className="text-sm text-stone-500">{safeLogs.length} total</p>
             </div>
 
@@ -289,7 +289,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                 {safeLogs.map((log) => (
                   <article key={log.id} className="rounded-xl border border-stone-200 bg-stone-50 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-base font-semibold text-slate-900">{log.exercise_name}</p>
+                      <p className="text-base font-semibold text-ink">{log.exercise_name}</p>
                       <p className="text-xs text-stone-500">{log.performed_on}</p>
                     </div>
                     <p className="mt-1 text-sm text-stone-600">

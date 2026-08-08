@@ -12,7 +12,7 @@ export function LoginForm() {
   return (
     <form action={action} className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-900" htmlFor="email">
+        <label className="text-sm font-medium text-ink" htmlFor="email">
           Email
         </label>
         <input
@@ -20,14 +20,14 @@ export function LoginForm() {
           name="email"
           type="email"
           autoComplete="email"
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-gold-deep"
           placeholder="trainer@atlas.app"
           required
         />
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-900" htmlFor="password">
+        <label className="text-sm font-medium text-ink" htmlFor="password">
           Password
         </label>
         <input
@@ -35,7 +35,7 @@ export function LoginForm() {
           name="password"
           type="password"
           autoComplete="current-password"
-          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+          className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-gold-deep"
           placeholder="••••••••"
           required
         />
@@ -50,7 +50,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+        className="inline-flex w-full items-center justify-center rounded-full bg-gold-deep px-5 py-3 text-sm font-medium text-white transition hover:bg-ink disabled:cursor-not-allowed disabled:bg-stone-400"
       >
         {pending ? "Signing in..." : "Sign in"}
       </button>

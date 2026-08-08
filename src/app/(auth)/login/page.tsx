@@ -13,14 +13,14 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#ece7dc_0,_#f6f1e6_42%,_#fcfbf8_100%)] px-5 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center rounded-[2rem] border border-stone-200/80 bg-white/90 p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] backdrop-blur sm:p-8 lg:p-10">
+    <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center rounded-[2rem] border border-white/10 bg-white/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-8 lg:p-10">
         <div className="grid w-full gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <section className="space-y-5">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-amber-700">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
               Atlas auth
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
               Sign in to the coaching workspace.
             </h1>
             <p className="max-w-xl text-base leading-7 text-stone-700 sm:text-lg">
@@ -29,18 +29,18 @@ export default async function LoginPage() {
               for trainer and client access later.
             </p>
             <div className="grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
-              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+              <div className="rounded-2xl border border-stone-200 bg-mist p-4">
                 Trainer and client roles are planned as the authorization gate.
               </div>
-              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+              <div className="rounded-2xl border border-stone-200 bg-mist p-4">
                 Fill `.env.local` with your Supabase URL and anon key before signing in.
               </div>
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-stone-200 bg-stone-50 p-6 sm:p-8">
+          <section className="rounded-[1.75rem] border border-stone-200 bg-mist p-6 sm:p-8">
             <div className="mb-6 space-y-2">
-              <h2 className="text-xl font-semibold text-slate-950">Login</h2>
+              <h2 className="text-xl font-semibold text-ink">Login</h2>
               <p className="text-sm leading-6 text-stone-600">
                 Use a Supabase Auth user from your project.
               </p>
@@ -48,7 +48,7 @@ export default async function LoginPage() {
             {isConfigured ? (
               <LoginForm />
             ) : (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-900">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm leading-6 text-red-900">
                 Add your Supabase project URL and anon key to `.env.local`, then
                 refresh this page to sign in.
               </div>

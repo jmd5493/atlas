@@ -3,11 +3,21 @@
 :root {
   --background: #fcfbf8;
   --foreground: #0f172a;
+
+  /* Brand palette — black/gold, keep in sync with design inspo */
+  --color-ink: #231f20;
+  --color-gold: #ad974f;
+  --color-gold-deep: #8e793e;
+  --color-mist: #eaeaea;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-ink: var(--color-ink);
+  --color-gold: var(--color-gold);
+  --color-gold-deep: var(--color-gold-deep);
+  --color-mist: var(--color-mist);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

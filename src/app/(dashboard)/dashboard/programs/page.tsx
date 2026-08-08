@@ -155,14 +155,14 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
   const safePrograms = programs ?? [];
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
+    <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
         <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-amber-700">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
               Trainer programs
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+            <h1 className="text-3xl font-semibold tracking-tight text-ink">
               Create workout programs
             </h1>
             <p className="text-sm leading-6 text-stone-600">
@@ -171,7 +171,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
           >
             Back to dashboard
           </Link>
@@ -179,7 +179,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.25fr]">
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-            <h2 className="text-lg font-semibold text-slate-950">Add program</h2>
+            <h2 className="text-lg font-semibold text-ink">Add program</h2>
 
             {statusMessage ? (
               <div
@@ -196,7 +196,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
             {safeClients.length === 0 ? (
               <div className="mt-4 rounded-xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
                 You need at least one client before creating a program.
-                <Link href="/dashboard/clients" className="ml-2 font-medium text-slate-900 underline">
+                <Link href="/dashboard/clients" className="ml-2 font-medium text-ink underline">
                   Create a client first
                 </Link>
               </div>
@@ -210,7 +210,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                     id="clientId"
                     name="clientId"
                     required
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                   >
                     <option value="">Select client</option>
                     {safeClients.map((client) => (
@@ -229,7 +229,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                     id="title"
                     name="title"
                     required
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                   />
                 </div>
 
@@ -243,7 +243,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                       name="startDate"
                       type="date"
                       required
-                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                     />
                   </div>
 
@@ -259,7 +259,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                       max={52}
                       defaultValue={4}
                       required
-                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                      className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                     />
                   </div>
                 </div>
@@ -272,7 +272,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                     id="description"
                     name="description"
                     rows={3}
-                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                   />
                 </div>
 
@@ -289,7 +289,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                         id={`day${dayNumber}Label`}
                         name={`day${dayNumber}Label`}
                         defaultValue={`Day ${dayNumber}`}
-                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                       />
                     </div>
 
@@ -306,7 +306,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                         rows={4}
                         required={dayNumber === 1}
                         placeholder="Back Squat | 4 | 8 | 185 | Warm up, then working sets"
-                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                       />
                       <p className="text-xs text-stone-500">
                         Format examples: Back Squat | 4 | 8 | 185 | Notes, Back Squat 4x8 @185 - Notes,
@@ -318,7 +318,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
 
                 <button
                   type="submit"
-                  className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
+                  className="inline-flex w-full items-center justify-center rounded-full bg-gold-deep px-5 py-3 text-sm font-medium text-white transition hover:bg-ink"
                 >
                   Create program
                 </button>
@@ -328,7 +328,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
 
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-950">Program list</h2>
+              <h2 className="text-lg font-semibold text-ink">Program list</h2>
               <p className="text-sm text-stone-500">{safePrograms.length} total</p>
             </div>
 
@@ -346,7 +346,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                     <details className="group">
                       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2">
                         <div>
-                          <h3 className="text-base font-semibold text-slate-900">{program.title}</h3>
+                          <h3 className="text-base font-semibold text-ink">{program.title}</h3>
                           <p className="mt-1 text-sm text-stone-700">
                             Client: {program.clients?.first_name} {program.clients?.last_name}
                           </p>
@@ -381,7 +381,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                             name="clientId"
                             defaultValue={program.client_id}
                             required
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                           >
                             {safeClients.map((client) => (
                               <option key={client.id} value={client.id}>
@@ -400,7 +400,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                             name="title"
                             defaultValue={program.title}
                             required
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                           />
                         </div>
 
@@ -415,7 +415,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                               type="date"
                               defaultValue={program.start_date}
                               required
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                             />
                           </div>
                           <div className="space-y-1">
@@ -430,7 +430,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                               max={52}
                               defaultValue={program.duration_weeks}
                               required
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                             />
                           </div>
                         </div>
@@ -444,13 +444,13 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                             name="description"
                             rows={3}
                             defaultValue={program.description ?? ""}
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                           />
                         </div>
 
                         <button
                           type="submit"
-                          className="inline-flex w-fit items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700"
+                          className="inline-flex w-fit items-center justify-center rounded-full bg-gold-deep px-4 py-2 text-xs font-medium text-white transition hover:bg-ink"
                         >
                           Save changes
                         </button>
