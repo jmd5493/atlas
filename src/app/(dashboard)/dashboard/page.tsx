@@ -7,8 +7,7 @@ function TrainerHome() {
     <section className="mt-6 rounded-[1.5rem] bg-slate-950 p-6 text-white">
       <h2 className="text-lg font-semibold">Trainer workspace</h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-        Next step is building trainer-first flows to create clients, create
-        programs, and assign workouts.
+        Manage your clients, build programs, and review submitted workout logs.
       </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <Link
@@ -39,8 +38,7 @@ function ClientHome() {
     <section className="mt-6 rounded-[1.5rem] bg-emerald-950 p-6 text-emerald-50">
       <h2 className="text-lg font-semibold">Client workspace</h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-100">
-        You are in the client view. Next step is to add workout assignment,
-        exercise logging, and workout history screens.
+        View your assigned workouts, log completed exercises, and track your training history.
       </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <Link
@@ -86,13 +84,13 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-6 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-amber-700">
-              Protected dashboard
+              Atlas dashboard
             </p>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-              You are signed in.
+              Welcome back
             </h1>
             <p className="text-sm leading-6 text-stone-600">
-              This is the gate for future trainer and client application flows.
+              Your workspace updates based on your account role.
             </p>
           </div>
 

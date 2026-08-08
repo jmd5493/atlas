@@ -11,11 +11,32 @@ type LinkedClientRow = {
   trainer_id: string;
 };
 
+function resolveRedirectPath(formData: FormData) {
+  const redirectInput = String(formData.get("redirectTo") ?? "").trim();
+  if (redirectInput === "/dashboard/workouts") {
+    return "/dashboard/workouts";
+  }
+
+  return "/dashboard/logs";
+}
+
+function redirectWithStatus(path: string, status: string, code?: string, message?: string) {
+  if (!code && !message) {
+    redirect(`${path}?status=${status}`);
+    return;
+  }
+
+  const errorCode = encodeURIComponent(code ?? "unknown");
+  const errorMessage = encodeURIComponent(message ?? "Unknown error");
+  redirect(`${path}?status=${status}&errorCode=${errorCode}&errorMessage=${errorMessage}`);
+}
+
 export async function createExerciseLog(formData: FormData) {
   const currentUser = await getCurrentUser();
+  const redirectPath = resolveRedirectPath(formData);
 
   if (!currentUser || currentUser.role !== "client") {
-    redirect("/dashboard/logs?status=forbidden");
+    redirectWithStatus(redirectPath, "forbidden");
     return;
   }
 
@@ -28,7 +49,7 @@ export async function createExerciseLog(formData: FormData) {
   const workoutProgramIdInput = String(formData.get("workoutProgramId") ?? "").trim();
 
   if (!exerciseName || !setsInput || !repsInput || !performedOn) {
-    redirect("/dashboard/logs?status=missing-fields");
+    redirectWithStatus(redirectPath, "missing-fields");
     return;
   }
 
@@ -42,7 +63,7 @@ export async function createExerciseLog(formData: FormData) {
     sets <= 0 ||
     reps <= 0
   ) {
-    redirect("/dashboard/logs?status=invalid-numbers");
+    redirectWithStatus(redirectPath, "invalid-numbers");
     return;
   }
 
@@ -54,7 +75,7 @@ export async function createExerciseLog(formData: FormData) {
     .maybeSingle<LinkedClientRow>();
 
   if (!linkedClient) {
-    redirect("/dashboard/logs?status=not-linked");
+    redirectWithStatus(redirectPath, "not-linked");
     return;
   }
 
@@ -73,13 +94,12 @@ export async function createExerciseLog(formData: FormData) {
   });
 
   if (error) {
-    const errorCode = encodeURIComponent(error.code ?? "unknown");
-    const errorMessage = encodeURIComponent(error.message ?? "Unknown insert error");
-    redirect(`/dashboard/logs?status=create-failed&errorCode=${errorCode}&errorMessage=${errorMessage}`);
+    redirectWithStatus(redirectPath, "create-failed", error.code, error.message ?? "Unknown insert error");
     return;
   }
 
   revalidatePath("/dashboard/logs");
+  revalidatePath("/dashboard/workouts");
   revalidatePath("/dashboard/client-logs");
-  redirect("/dashboard/logs?status=created");
+  redirectWithStatus(redirectPath, "created");
 }

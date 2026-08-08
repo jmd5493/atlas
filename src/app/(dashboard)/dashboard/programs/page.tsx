@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { createWorkoutProgram } from "@/app/actions/programs";
+import {
+  createWorkoutProgram,
+  deleteWorkoutProgram,
+  updateWorkoutProgram,
+} from "@/app/actions/programs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -17,6 +21,7 @@ type ProgramRow = {
   description: string | null;
   start_date: string;
   duration_weeks: number;
+  client_id: string;
   created_at: string;
   clients: {
     first_name: string;
@@ -38,6 +43,16 @@ function getStatusMessage(
       return {
         tone: "success",
         text: "Workout program created successfully.",
+      };
+    case "updated":
+      return {
+        tone: "success",
+        text: "Workout program updated successfully.",
+      };
+    case "deleted":
+      return {
+        tone: "success",
+        text: "Workout program deleted.",
       };
     case "missing-fields":
       return {
@@ -80,6 +95,16 @@ function getStatusMessage(
         tone: "error",
         text: `Program creation failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
       };
+    case "update-failed":
+      return {
+        tone: "error",
+        text: `Program update failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+      };
+    case "delete-failed":
+      return {
+        tone: "error",
+        text: `Program delete failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+      };
     case "forbidden":
       return {
         tone: "error",
@@ -121,7 +146,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
 
   const { data: programs } = await supabase
     .from("workout_programs")
-    .select("id, title, description, start_date, duration_weeks, created_at, clients(first_name,last_name)")
+    .select("id, title, description, start_date, duration_weeks, client_id, created_at, clients(first_name,last_name)")
     .eq("trainer_id", currentUser.user.id)
     .order("created_at", { ascending: false })
     .returns<ProgramRow[]>();
@@ -318,21 +343,132 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                     key={program.id}
                     className="rounded-xl border border-stone-200 bg-stone-50 p-4"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-base font-semibold text-slate-900">{program.title}</p>
-                      <p className="text-xs text-stone-500">
-                        Added {new Date(program.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <p className="mt-1 text-sm text-stone-700">
-                      Client: {program.clients?.first_name} {program.clients?.last_name}
-                    </p>
-                    <p className="mt-1 text-sm text-stone-600">
-                      Starts {program.start_date} · {program.duration_weeks} weeks
-                    </p>
-                    {program.description ? (
-                      <p className="mt-2 text-sm leading-6 text-stone-700">{program.description}</p>
-                    ) : null}
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-base font-semibold text-slate-900">{program.title}</h3>
+                          <p className="mt-1 text-sm text-stone-700">
+                            Client: {program.clients?.first_name} {program.clients?.last_name}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 text-right">
+                          <span
+                            aria-hidden="true"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone-300 bg-white text-lg font-semibold text-stone-700 shadow-sm transition-transform group-open:rotate-180"
+                          >
+                            ▾
+                          </span>
+                          <div>
+                            <p className="text-xs text-stone-500">
+                              Added {new Date(program.created_at).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-stone-600">
+                              Starts {program.start_date} · {program.duration_weeks} weeks
+                            </p>
+                          </div>
+                        </div>
+                      </summary>
+
+                      <form action={updateWorkoutProgram} className="mt-3 grid gap-3 border-t border-stone-200 pt-3">
+                        <input type="hidden" name="programId" value={program.id} />
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`client-${program.id}`}>
+                            Client
+                          </label>
+                          <select
+                            id={`client-${program.id}`}
+                            name="clientId"
+                            defaultValue={program.client_id}
+                            required
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                          >
+                            {safeClients.map((client) => (
+                              <option key={client.id} value={client.id}>
+                                {client.first_name} {client.last_name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`title-${program.id}`}>
+                            Title
+                          </label>
+                          <input
+                            id={`title-${program.id}`}
+                            name="title"
+                            defaultValue={program.title}
+                            required
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                          />
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`startDate-${program.id}`}>
+                              Start date
+                            </label>
+                            <input
+                              id={`startDate-${program.id}`}
+                              name="startDate"
+                              type="date"
+                              defaultValue={program.start_date}
+                              required
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`durationWeeks-${program.id}`}>
+                              Duration (weeks)
+                            </label>
+                            <input
+                              id={`durationWeeks-${program.id}`}
+                              name="durationWeeks"
+                              type="number"
+                              min={1}
+                              max={52}
+                              defaultValue={program.duration_weeks}
+                              required
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`description-${program.id}`}>
+                            Description
+                          </label>
+                          <textarea
+                            id={`description-${program.id}`}
+                            name="description"
+                            rows={3}
+                            defaultValue={program.description ?? ""}
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="inline-flex w-fit items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700"
+                        >
+                          Save changes
+                        </button>
+                      </form>
+
+                      <form action={deleteWorkoutProgram} className="mt-2">
+                        <input type="hidden" name="programId" value={program.id} />
+                        <button
+                          type="submit"
+                          className="inline-flex items-center justify-center rounded-full border border-red-300 px-4 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
+                        >
+                          Delete program
+                        </button>
+                        <p className="mt-1 text-xs text-red-600">
+                          Deleting a program removes its day and exercise structure.
+                        </p>
+                      </form>
+                    </details>
                   </article>
                 ))}
               </div>
