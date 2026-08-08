@@ -17,13 +17,13 @@ function TrainerHome() {
           href="/dashboard/clients"
           className="rounded-xl bg-white/10 p-3 text-sm transition hover:bg-gold-deep/30"
         >
-          Create clients
+          Manage clients
         </Link>
         <Link
           href="/dashboard/programs"
           className="rounded-xl bg-white/10 p-3 text-sm transition hover:bg-gold-deep/30"
         >
-          Create programs
+          Manage programs
         </Link>
         <Link
           href="/dashboard/client-logs"
@@ -57,7 +57,7 @@ function ClientHome() {
           href="/dashboard/logs"
           className="rounded-xl bg-white/10 p-3 text-sm transition hover:bg-gold-deep/30"
         >
-          Log exercises
+          Log something extra
         </Link>
         <div className="rounded-xl bg-white/10 p-3 text-sm">Workout history</div>
       </div>

@@ -24,97 +24,43 @@ function isPositiveWholeNumber(value: number) {
   return Number.isInteger(value) && value > 0;
 }
 
-function parseStrictFields(
-  name: string,
-  setsInput: string,
-  repsInput: string,
-  weightInput: string,
-  notesInput: string,
-): ParsedExercise | null {
-  const sets = Number.parseInt(setsInput, 10);
-  const reps = Number.parseInt(repsInput, 10);
-  const weight = Number.parseFloat(weightInput);
-  const cleanName = name.trim();
+type ParsedWorkoutDay = {
+  day_number: number;
+  day_label: string;
+  sort_order: number;
+  exercises: ParsedExercise[];
+};
 
-  if (!cleanName || !isPositiveWholeNumber(sets) || !isPositiveWholeNumber(reps)) {
-    return null;
-  }
+type IncomingExercise = {
+  name?: unknown;
+  sets?: unknown;
+  reps?: unknown;
+  weight?: unknown;
+  notes?: unknown;
+};
 
-  const notes = notesInput.trim();
+type IncomingWorkoutBlock = {
+  label?: unknown;
+  exercises?: unknown;
+};
 
-  return {
-    exercise_name: cleanName,
-    sets,
-    reps,
-    target_weight: Number.isNaN(weight) ? null : weight,
-    notes: notes.length > 0 ? notes : null,
-  };
-}
+type IncomingDay = {
+  dayNumber?: unknown;
+  workouts?: unknown;
+};
 
-function parsePipeOrCommaLine(line: string): ParsedExercise | null {
-  const parts = line.includes("|")
-    ? line.split("|").map((value) => value.trim())
-    : line.split(",").map((value) => value.trim());
+function parseIncomingExercise(raw: IncomingExercise): ParsedExercise | null {
+  const name = typeof raw?.name === "string" ? raw.name.trim() : "";
+  const sets = Number.parseInt(String(raw?.sets ?? ""), 10);
+  const reps = Number.parseInt(String(raw?.reps ?? ""), 10);
+  const weightInput = raw?.weight;
+  const weight =
+    typeof weightInput === "string" || typeof weightInput === "number"
+      ? Number.parseFloat(String(weightInput))
+      : NaN;
+  const notes = typeof raw?.notes === "string" ? raw.notes.trim() : "";
 
-  const [name = "", setsInput = "", repsInput = "", weightInput = "", ...notesParts] = parts;
-  const notes = notesParts.join(" ");
-
-  return parseStrictFields(name, setsInput, repsInput, weightInput, notes);
-}
-
-function parseCompactLine(line: string): ParsedExercise | null {
-  const compactPattern = /^(.*?)\s+(\d+)\s*x\s*(\d+)(?:\s*@\s*([0-9]+(?:\.[0-9]+)?))?(?:\s*-\s*(.*))?$/i;
-  const match = line.match(compactPattern);
-
-  if (!match) {
-    return null;
-  }
-
-  const [, name, setsInput, repsInput, weightInput, notesInput] = match;
-  return parseStrictFields(name, setsInput, repsInput, weightInput ?? "", notesInput ?? "");
-}
-
-function parseFreeformLine(line: string): ParsedExercise | null {
-  const setWordMatch = line.match(/(\d+)\s*(?:sets?|set)\b/i);
-  const repWordMatch = line.match(/(\d+)\s*(?:reps?|rep)\b/i);
-  const compactMatch = line.match(/(\d+)\s*x\s*(\d+)/i);
-  const weightMatch = line.match(/@\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:lb|lbs|kg)\b/i);
-
-  let sets: number | null = null;
-  let reps: number | null = null;
-
-  if (setWordMatch && repWordMatch) {
-    sets = Number.parseInt(setWordMatch[1], 10);
-    reps = Number.parseInt(repWordMatch[1], 10);
-  } else if (compactMatch) {
-    sets = Number.parseInt(compactMatch[1], 10);
-    reps = Number.parseInt(compactMatch[2], 10);
-  } else {
-    const numbers = [...line.matchAll(/\d+(?:\.\d+)?/g)].map((match) => Number.parseFloat(match[0]));
-    if (numbers.length >= 2) {
-      sets = Number.parseInt(String(numbers[0]), 10);
-      reps = Number.parseInt(String(numbers[1]), 10);
-    }
-  }
-
-  if (!sets || !reps || !isPositiveWholeNumber(sets) || !isPositiveWholeNumber(reps)) {
-    return null;
-  }
-
-  const weightValue = weightMatch?.[1] ?? weightMatch?.[2] ?? "";
-  const weight = Number.parseFloat(weightValue);
-
-  const name = line
-    .replace(/\d+\s*(?:sets?|set|reps?|rep)\b/gi, "")
-    .replace(/\d+\s*x\s*\d+/gi, "")
-    .replace(/@\s*[0-9]+(?:\.[0-9]+)?/gi, "")
-    .replace(/[0-9]+(?:\.[0-9]+)?\s*(?:lb|lbs|kg)\b/gi, "")
-    .replace(/\s+-\s+.*/, "")
-    .replace(/[|,]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!name) {
+  if (!name || !isPositiveWholeNumber(sets) || !isPositiveWholeNumber(reps)) {
     return null;
   }
 
@@ -123,31 +69,55 @@ function parseFreeformLine(line: string): ParsedExercise | null {
     sets,
     reps,
     target_weight: Number.isNaN(weight) ? null : weight,
-    notes: null,
+    notes: notes.length > 0 ? notes : null,
   };
 }
 
-function parseExerciseLines(rawValue: string): ParsedExercise[] {
-  return rawValue
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => {
-      if (line.includes("|") || line.includes(",")) {
-        const parsedDelimited = parsePipeOrCommaLine(line);
-        if (parsedDelimited) {
-          return parsedDelimited;
-        }
+function parseIncomingDays(rawJson: string): ParsedWorkoutDay[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  const days: ParsedWorkoutDay[] = [];
+
+  for (const entry of parsed as IncomingDay[]) {
+    const dayNumber = Number(entry?.dayNumber);
+    if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 7) {
+      continue;
+    }
+
+    const workouts = Array.isArray(entry?.workouts) ? (entry.workouts as IncomingWorkoutBlock[]) : [];
+
+    workouts.forEach((workout, index) => {
+      const label = typeof workout?.label === "string" ? workout.label.trim() : "";
+      const exercisesRaw = Array.isArray(workout?.exercises)
+        ? (workout.exercises as IncomingExercise[])
+        : [];
+      const exercises = exercisesRaw
+        .map(parseIncomingExercise)
+        .filter((exercise): exercise is ParsedExercise => exercise !== null);
+
+      if (exercises.length === 0) {
+        return;
       }
 
-      const parsedCompact = parseCompactLine(line);
-      if (parsedCompact) {
-        return parsedCompact;
-      }
+      days.push({
+        day_number: dayNumber,
+        day_label: label.length > 0 ? label : `Day ${dayNumber} workout ${index + 1}`,
+        sort_order: index + 1,
+        exercises,
+      });
+    });
+  }
 
-      return parseFreeformLine(line);
-    })
-    .filter((entry): entry is ParsedExercise => entry !== null);
+  return days;
 }
 
 export async function createWorkoutProgram(formData: FormData) {
@@ -175,26 +145,8 @@ export async function createWorkoutProgram(formData: FormData) {
     return;
   }
 
-  const days = [1, 2, 3]
-    .map((dayNumber) => {
-      const dayLabelInput = String(formData.get(`day${dayNumber}Label`) ?? "").trim();
-      const linesInput = String(formData.get(`day${dayNumber}Exercises`) ?? "").trim();
-
-      const exercises = parseExerciseLines(linesInput);
-      if (exercises.length === 0) {
-        return null;
-      }
-
-      return {
-        day_label: dayLabelInput.length > 0 ? dayLabelInput : `Day ${dayNumber}`,
-        sort_order: dayNumber,
-        exercises,
-      };
-    })
-    .filter(
-      (day): day is { day_label: string; sort_order: number; exercises: ParsedExercise[] } =>
-        day !== null,
-    );
+  const daysJsonInput = String(formData.get("daysJson") ?? "[]");
+  const days = parseIncomingDays(daysJsonInput);
 
   if (days.length === 0) {
     redirect("/dashboard/programs?status=missing-exercises");
@@ -233,6 +185,7 @@ export async function createWorkoutProgram(formData: FormData) {
       .from("workout_program_days")
       .insert({
         workout_program_id: program.id,
+        day_number: day.day_number,
         day_label: day.day_label,
         sort_order: day.sort_order,
       })
@@ -309,6 +262,106 @@ export async function updateWorkoutProgram(formData: FormData) {
   revalidatePath("/dashboard/logs");
   revalidatePath("/dashboard/client-logs");
   redirect("/dashboard/programs?status=updated");
+}
+
+export async function updateWorkoutProgramDays(formData: FormData) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser || currentUser.role !== "trainer") {
+    redirect("/dashboard/programs?status=forbidden");
+    return;
+  }
+
+  const programId = String(formData.get("programId") ?? "").trim();
+  if (!programId) {
+    redirect("/dashboard/programs?status=days-update-failed");
+    return;
+  }
+
+  const daysJsonInput = String(formData.get("daysJson") ?? "[]");
+  const days = parseIncomingDays(daysJsonInput);
+
+  if (days.length === 0) {
+    redirect("/dashboard/programs?status=missing-exercises");
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  // Confirm this program belongs to the requesting trainer before touching
+  // its days. RLS would block a cross-trainer delete/insert anyway, but
+  // checking here lets us return a clear status instead of a silent no-op.
+  const { data: program, error: programLookupError } = await supabase
+    .from("workout_programs")
+    .select("id")
+    .eq("id", programId)
+    .eq("trainer_id", currentUser.user.id)
+    .maybeSingle<{ id: string }>();
+
+  if (programLookupError || !program) {
+    redirect(
+      buildErrorRedirect(
+        "/dashboard/programs",
+        "days-update-failed",
+        programLookupError?.code,
+        programLookupError?.message ?? "Program not found for this trainer.",
+      ),
+    );
+    return;
+  }
+
+  // Full replace: delete the program's existing days (cascades to their
+  // exercises via FK) and reinsert from the submitted state, same pattern as
+  // createWorkoutProgram. Safe because exercise_logs.workout_program_id
+  // references the program itself (ON DELETE SET NULL) and stores
+  // exercise_name as a plain string — it has no FK to day/exercise rows, so
+  // this replace cannot orphan or corrupt a client's already-logged history.
+  const { error: deleteError } = await supabase
+    .from("workout_program_days")
+    .delete()
+    .eq("workout_program_id", programId);
+
+  if (deleteError) {
+    redirect(
+      buildErrorRedirect("/dashboard/programs", "days-update-failed", deleteError.code, deleteError.message),
+    );
+    return;
+  }
+
+  for (const day of days) {
+    const { data: createdDay, error: dayError } = await supabase
+      .from("workout_program_days")
+      .insert({
+        workout_program_id: programId,
+        day_number: day.day_number,
+        day_label: day.day_label,
+        sort_order: day.sort_order,
+      })
+      .select("id")
+      .single<{ id: string }>();
+
+    if (dayError || !createdDay) {
+      continue;
+    }
+
+    await supabase.from("workout_program_exercises").insert(
+      day.exercises.map((exercise, index) => ({
+        workout_program_day_id: createdDay.id,
+        exercise_name: exercise.exercise_name,
+        sets: exercise.sets,
+        reps: exercise.reps,
+        target_weight: exercise.target_weight,
+        notes: exercise.notes,
+        sort_order: index + 1,
+      })),
+    );
+  }
+
+  revalidatePath("/dashboard/programs");
+  revalidatePath("/dashboard/workouts");
+  revalidatePath("/dashboard/logs");
+  revalidatePath("/dashboard/client-logs");
+  redirect("/dashboard/programs?status=days-updated");
 }
 
 export async function deleteWorkoutProgram(formData: FormData) {

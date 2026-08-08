@@ -5,7 +5,10 @@ import {
   createWorkoutProgram,
   deleteWorkoutProgram,
   updateWorkoutProgram,
+  updateWorkoutProgramDays,
 } from "@/app/actions/programs";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { ProgramDayBuilder, type InitialWorkoutDay } from "@/components/program-day-builder";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -13,6 +16,25 @@ type ClientOption = {
   id: string;
   first_name: string;
   last_name: string;
+  archived_at: string | null;
+};
+
+type ExerciseRow = {
+  id: string;
+  exercise_name: string;
+  sets: number;
+  reps: number;
+  target_weight: number | null;
+  notes: string | null;
+  sort_order: number;
+};
+
+type DayRow = {
+  id: string;
+  day_number: number;
+  day_label: string;
+  sort_order: number;
+  workout_program_exercises: ExerciseRow[];
 };
 
 type ProgramRow = {
@@ -27,7 +49,39 @@ type ProgramRow = {
     first_name: string;
     last_name: string;
   } | null;
+  workout_program_days: DayRow[];
 };
+
+// Group a program's flat day rows (one row per workout, day_number can
+// repeat) into the builder's per-day-number shape for pre-population.
+function toInitialWorkoutDays(days: DayRow[]): InitialWorkoutDay[] {
+  const byDayNumber = new Map<number, DayRow[]>();
+  for (const day of days) {
+    const group = byDayNumber.get(day.day_number) ?? [];
+    group.push(day);
+    byDayNumber.set(day.day_number, group);
+  }
+
+  return Array.from(byDayNumber.entries()).map(([dayNumber, dayWorkouts]) => ({
+    dayNumber,
+    workouts: dayWorkouts
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((workout) => ({
+        label: workout.day_label,
+        exercises: workout.workout_program_exercises
+          .slice()
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((exercise) => ({
+            name: exercise.exercise_name,
+            sets: String(exercise.sets),
+            reps: String(exercise.reps),
+            weight: exercise.target_weight !== null ? String(exercise.target_weight) : "",
+            notes: exercise.notes ?? "",
+          })),
+      })),
+  }));
+}
 
 type ProgramsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -49,6 +103,11 @@ function getStatusMessage(
         tone: "success",
         text: "Workout program updated successfully.",
       };
+    case "days-updated":
+      return {
+        tone: "success",
+        text: "Workout schedule updated successfully.",
+      };
     case "deleted":
       return {
         tone: "success",
@@ -67,7 +126,7 @@ function getStatusMessage(
     case "missing-exercises":
       return {
         tone: "error",
-        text: "Add at least one valid exercise line to create a program.",
+        text: "Add at least one valid exercise line before saving.",
       };
     case "create-failed":
       if (errorCode === "42P01") {
@@ -99,6 +158,11 @@ function getStatusMessage(
       return {
         tone: "error",
         text: `Program update failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+      };
+    case "days-update-failed":
+      return {
+        tone: "error",
+        text: `Workout schedule update failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
       };
     case "delete-failed":
       return {
@@ -139,19 +203,26 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, first_name, last_name")
+    .select("id, first_name, last_name, archived_at")
     .eq("trainer_id", currentUser.user.id)
     .order("created_at", { ascending: false })
     .returns<ClientOption[]>();
 
+  const allClients = clients ?? [];
+  // Archived clients shouldn't be offered for *new* assignments, but an existing
+  // program's edit dropdown still needs to include its current client even if
+  // archived since then — otherwise saving would silently reassign it.
+  const assignableClients = allClients.filter((client) => !client.archived_at);
+
   const { data: programs } = await supabase
     .from("workout_programs")
-    .select("id, title, description, start_date, duration_weeks, client_id, created_at, clients(first_name,last_name)")
+    .select(
+      "id, title, description, start_date, duration_weeks, client_id, created_at, clients(first_name,last_name), workout_program_days(id,day_number,day_label,sort_order,workout_program_exercises(id,exercise_name,sets,reps,target_weight,notes,sort_order))",
+    )
     .eq("trainer_id", currentUser.user.id)
     .order("created_at", { ascending: false })
     .returns<ProgramRow[]>();
 
-  const safeClients = clients ?? [];
   const safePrograms = programs ?? [];
 
   return (
@@ -193,9 +264,9 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
               </div>
             ) : null}
 
-            {safeClients.length === 0 ? (
+            {assignableClients.length === 0 ? (
               <div className="mt-4 rounded-xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
-                You need at least one client before creating a program.
+                You need at least one active client before creating a program.
                 <Link href="/dashboard/clients" className="ml-2 font-medium text-ink underline">
                   Create a client first
                 </Link>
@@ -213,7 +284,7 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                     className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                   >
                     <option value="">Select client</option>
-                    {safeClients.map((client) => (
+                    {assignableClients.map((client) => (
                       <option key={client.id} value={client.id}>
                         {client.first_name} {client.last_name}
                       </option>
@@ -276,45 +347,14 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                   />
                 </div>
 
-                {[1, 2, 3].map((dayNumber) => (
-                  <div key={dayNumber} className="rounded-xl border border-stone-200 bg-white p-4">
-                    <div className="space-y-2">
-                      <label
-                        htmlFor={`day${dayNumber}Label`}
-                        className="text-sm font-medium text-stone-700"
-                      >
-                        Day {dayNumber} label
-                      </label>
-                      <input
-                        id={`day${dayNumber}Label`}
-                        name={`day${dayNumber}Label`}
-                        defaultValue={`Day ${dayNumber}`}
-                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
-                      />
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-                      <label
-                        htmlFor={`day${dayNumber}Exercises`}
-                        className="text-sm font-medium text-stone-700"
-                      >
-                        Exercises (one per line)
-                      </label>
-                      <textarea
-                        id={`day${dayNumber}Exercises`}
-                        name={`day${dayNumber}Exercises`}
-                        rows={4}
-                        required={dayNumber === 1}
-                        placeholder="Back Squat | 4 | 8 | 185 | Warm up, then working sets"
-                        className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
-                      />
-                      <p className="text-xs text-stone-500">
-                        Format examples: Back Squat | 4 | 8 | 185 | Notes, Back Squat 4x8 @185 - Notes,
-                        or Back Squat 4 sets 8 reps 185 lb
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-stone-700">Weekly schedule</p>
+                  <p className="text-xs text-stone-500">
+                    Add a workout to any day that trains. Use &ldquo;+ Add workout&rdquo; on a day
+                    more than once if the client trains twice that day.
+                  </p>
+                  <ProgramDayBuilder fieldName="daysJson" />
+                </div>
 
                 <button
                   type="submit"
@@ -383,9 +423,10 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                             required
                             className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                           >
-                            {safeClients.map((client) => (
+                            {allClients.map((client) => (
                               <option key={client.id} value={client.id}>
                                 {client.first_name} {client.last_name}
+                                {client.archived_at ? " (archived)" : ""}
                               </option>
                             ))}
                           </select>
@@ -456,16 +497,35 @@ export default async function ProgramsPage({ searchParams }: ProgramsPageProps) 
                         </button>
                       </form>
 
+                      <form action={updateWorkoutProgramDays} className="mt-4 space-y-2 border-t border-stone-200 pt-3">
+                        <input type="hidden" name="programId" value={program.id} />
+                        <p className="text-sm font-medium text-stone-700">Weekly schedule</p>
+                        <p className="text-xs text-stone-500">
+                          Saving replaces this program&rsquo;s full day/workout/exercise structure with what&rsquo;s
+                          below. The client&rsquo;s already-logged history is not affected.
+                        </p>
+                        <ProgramDayBuilder
+                          fieldName="daysJson"
+                          initialDays={toInitialWorkoutDays(program.workout_program_days)}
+                        />
+                        <ConfirmSubmitButton
+                          confirmMessage="Save this workout schedule? It replaces all days, workouts, and exercises currently on this program."
+                          className="inline-flex w-fit items-center justify-center rounded-full bg-gold-deep px-4 py-2 text-xs font-medium text-white transition hover:bg-ink"
+                        >
+                          Save workout schedule
+                        </ConfirmSubmitButton>
+                      </form>
+
                       <form action={deleteWorkoutProgram} className="mt-2">
                         <input type="hidden" name="programId" value={program.id} />
-                        <button
-                          type="submit"
+                        <ConfirmSubmitButton
+                          confirmMessage={`Delete "${program.title}"? This permanently removes its day and exercise structure and cannot be undone. The client's already-logged history is kept.`}
                           className="inline-flex items-center justify-center rounded-full border border-red-300 px-4 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
                         >
                           Delete program
-                        </button>
+                        </ConfirmSubmitButton>
                         <p className="mt-1 text-xs text-red-600">
-                          Deleting a program removes its day and exercise structure.
+                          Deleting a program removes its day and exercise structure. Logged history is kept.
                         </p>
                       </form>
                     </details>

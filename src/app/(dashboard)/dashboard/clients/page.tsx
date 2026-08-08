@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { createClient, deleteClient, updateClient } from "@/app/actions/clients";
+import { archiveClient, createClient, restoreClient, updateClient } from "@/app/actions/clients";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -12,6 +13,7 @@ type ClientRow = {
   email: string | null;
   notes: string | null;
   created_at: string;
+  archived_at: string | null;
 };
 
 type ClientsPageProps = {
@@ -28,8 +30,10 @@ function getStatusMessage(
       return { tone: "success", text: "Client created." };
     case "updated":
       return { tone: "success", text: "Client updated." };
-    case "deleted":
-      return { tone: "success", text: "Client deleted." };
+    case "archived":
+      return { tone: "success", text: "Client archived. Their history is preserved." };
+    case "restored":
+      return { tone: "success", text: "Client restored." };
     case "missing-fields":
       return { tone: "error", text: "First name and last name are required." };
     case "create-failed":
@@ -42,10 +46,15 @@ function getStatusMessage(
         tone: "error",
         text: `Update failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
       };
-    case "delete-failed":
+    case "archive-failed":
       return {
         tone: "error",
-        text: `Delete failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+        text: `Archive failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+      };
+    case "restore-failed":
+      return {
+        tone: "error",
+        text: `Restore failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
       };
     case "forbidden":
       return { tone: "error", text: "Only trainer accounts can manage clients." };
@@ -64,6 +73,9 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const errorMessage = Array.isArray(errorMessageValue) ? errorMessageValue[0] : errorMessageValue;
   const statusMessage = getStatusMessage(status, errorCode, errorMessage);
 
+  const viewValue = resolvedParams?.view;
+  const view = (Array.isArray(viewValue) ? viewValue[0] : viewValue) === "archived" ? "archived" : "active";
+
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
@@ -75,12 +87,16 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data: clients } = await supabase
+  const clientsQuery = supabase
     .from("clients")
-    .select("id, first_name, last_name, email, notes, created_at")
+    .select("id, first_name, last_name, email, notes, created_at, archived_at")
     .eq("trainer_id", currentUser.user.id)
-    .order("created_at", { ascending: false })
-    .returns<ClientRow[]>();
+    .order("created_at", { ascending: false });
+
+  const { data: clients } =
+    view === "archived"
+      ? await clientsQuery.not("archived_at", "is", null).returns<ClientRow[]>()
+      : await clientsQuery.is("archived_at", null).returns<ClientRow[]>();
 
   const safeClients = clients ?? [];
 
@@ -99,12 +115,20 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               Create and manage client records before assigning workout programs.
             </p>
           </div>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
-          >
-            Back to dashboard
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={view === "archived" ? "/dashboard/clients" : "/dashboard/clients?view=archived"}
+              className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
+            >
+              {view === "archived" ? "View active clients" : "View archived clients"}
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
+            >
+              Back to dashboard
+            </Link>
+          </div>
         </header>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.25fr]">
@@ -179,13 +203,17 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink">Client list</h2>
+              <h2 className="text-lg font-semibold text-ink">
+                {view === "archived" ? "Archived clients" : "Client list"}
+              </h2>
               <p className="text-sm text-stone-500">{safeClients.length} total</p>
             </div>
 
             {safeClients.length === 0 ? (
               <div className="mt-4 rounded-xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
-                No clients yet. Add your first client using the form.
+                {view === "archived"
+                  ? "No archived clients."
+                  : "No clients yet. Add your first client using the form."}
               </div>
             ) : (
               <div className="mt-4 space-y-3">
@@ -218,82 +246,102 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                         </div>
                       </summary>
 
-                      <form action={updateClient} className="mt-3 grid gap-3 border-t border-stone-200 pt-3">
-                        <input type="hidden" name="clientId" value={client.id} />
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`firstName-${client.id}`}>
-                              First name
-                            </label>
-                            <input
-                              id={`firstName-${client.id}`}
-                              name="firstName"
-                              defaultValue={client.first_name}
-                              required
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`lastName-${client.id}`}>
-                              Last name
-                            </label>
-                            <input
-                              id={`lastName-${client.id}`}
-                              name="lastName"
-                              defaultValue={client.last_name}
-                              required
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
-                            />
-                          </div>
+                      {view === "archived" ? (
+                        <div className="mt-3 grid gap-3 border-t border-stone-200 pt-3">
+                          <p className="text-xs text-stone-500">
+                            Archived {client.archived_at ? new Date(client.archived_at).toLocaleDateString() : ""}.
+                            Their programs and logs are preserved and reappear once restored.
+                          </p>
+                          <form action={restoreClient}>
+                            <input type="hidden" name="clientId" value={client.id} />
+                            <ConfirmSubmitButton
+                              confirmMessage={`Restore ${client.first_name} ${client.last_name}? They will reappear in your active client list.`}
+                              className="inline-flex items-center justify-center rounded-full bg-gold-deep px-4 py-2 text-xs font-medium text-white transition hover:bg-ink"
+                            >
+                              Restore client
+                            </ConfirmSubmitButton>
+                          </form>
                         </div>
+                      ) : (
+                        <>
+                          <form action={updateClient} className="mt-3 grid gap-3 border-t border-stone-200 pt-3">
+                            <input type="hidden" name="clientId" value={client.id} />
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`firstName-${client.id}`}>
+                                  First name
+                                </label>
+                                <input
+                                  id={`firstName-${client.id}`}
+                                  name="firstName"
+                                  defaultValue={client.first_name}
+                                  required
+                                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`lastName-${client.id}`}>
+                                  Last name
+                                </label>
+                                <input
+                                  id={`lastName-${client.id}`}
+                                  name="lastName"
+                                  defaultValue={client.last_name}
+                                  required
+                                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
+                                />
+                              </div>
+                            </div>
 
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`email-${client.id}`}>
-                            Email
-                          </label>
-                          <input
-                            id={`email-${client.id}`}
-                            name="email"
-                            defaultValue={client.email ?? ""}
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
-                          />
-                        </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`email-${client.id}`}>
+                                Email
+                              </label>
+                              <input
+                                id={`email-${client.id}`}
+                                name="email"
+                                defaultValue={client.email ?? ""}
+                                className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
+                              />
+                            </div>
 
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`notes-${client.id}`}>
-                            Notes
-                          </label>
-                          <textarea
-                            id={`notes-${client.id}`}
-                            name="notes"
-                            rows={3}
-                            defaultValue={client.notes ?? ""}
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
-                          />
-                        </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium uppercase tracking-[0.12em] text-stone-500" htmlFor={`notes-${client.id}`}>
+                                Notes
+                              </label>
+                              <textarea
+                                id={`notes-${client.id}`}
+                                name="notes"
+                                rows={3}
+                                defaultValue={client.notes ?? ""}
+                                className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
+                              />
+                            </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="submit"
-                            className="inline-flex items-center justify-center rounded-full bg-gold-deep px-4 py-2 text-xs font-medium text-white transition hover:bg-ink"
-                          >
-                            Save changes
-                          </button>
-                        </div>
-                      </form>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="submit"
+                                className="inline-flex items-center justify-center rounded-full bg-gold-deep px-4 py-2 text-xs font-medium text-white transition hover:bg-ink"
+                              >
+                                Save changes
+                              </button>
+                            </div>
+                          </form>
 
-                      <form action={deleteClient} className="mt-2">
-                        <input type="hidden" name="clientId" value={client.id} />
-                        <button
-                          type="submit"
-                          className="inline-flex items-center justify-center rounded-full border border-red-300 px-4 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
-                        >
-                          Delete client
-                        </button>
-                        <p className="mt-1 text-xs text-red-600">
-                          Deleting a client also removes related programs and logs.
-                        </p>
-                      </form>
+                          <form action={archiveClient} className="mt-2">
+                            <input type="hidden" name="clientId" value={client.id} />
+                            <ConfirmSubmitButton
+                              confirmMessage={`Archive ${client.first_name} ${client.last_name}? They'll be hidden from your active list but their programs and logs stay intact, and you can restore them anytime.`}
+                              className="inline-flex items-center justify-center rounded-full border border-red-300 px-4 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
+                            >
+                              Archive client
+                            </ConfirmSubmitButton>
+                            <p className="mt-1 text-xs text-stone-500">
+                              Archiving hides this client without deleting their programs or logs.
+                            </p>
+                          </form>
+                        </>
+                      )}
                     </details>
                   </article>
                 ))}

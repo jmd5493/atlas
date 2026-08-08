@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createExerciseLog } from "@/app/actions/logs";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -27,6 +28,7 @@ type ExerciseRow = {
 
 type DayRow = {
   id: string;
+  day_number: number;
   day_label: string;
   sort_order: number;
   workout_program_exercises: ExerciseRow[];
@@ -121,7 +123,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
   const { data: programs } = await supabase
     .from("workout_programs")
     .select(
-      "id, title, description, start_date, duration_weeks, workout_program_days(id,day_label,sort_order,workout_program_exercises(id,exercise_name,sets,reps,target_weight,notes,sort_order))",
+      "id, title, description, start_date, duration_weeks, workout_program_days(id,day_number,day_label,sort_order,workout_program_exercises(id,exercise_name,sets,reps,target_weight,notes,sort_order))",
     )
     .eq("client_id", linkedClient.id)
     .order("created_at", { ascending: false })
@@ -144,7 +146,8 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
               Viewing programs for {linkedClient.first_name} {linkedClient.last_name}
             </p>
             <p className="mt-1 text-xs text-stone-500">
-              Log each exercise directly from this page, or use the full log history page.
+              Log each exercise directly from this page. Did something extra, or need to log an
+              earlier date? Use &ldquo;Log something extra&rdquo; instead.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -152,7 +155,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
               href="/dashboard/logs"
               className="inline-flex items-center justify-center rounded-full border border-emerald-300 px-5 py-3 text-sm font-medium text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50"
             >
-              Full log history
+              Log something extra
             </Link>
             <Link
               href="/dashboard"
@@ -191,16 +194,31 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                   <p className="mt-3 text-sm leading-6 text-stone-700">{program.description}</p>
                 ) : null}
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  {program.workout_program_days
-                    .slice()
-                    .sort((a, b) => a.sort_order - b.sort_order)
-                    .map((day) => (
-                      <section key={day.id} className="rounded-xl border border-stone-200 bg-white p-4">
-                        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-600">
-                          {day.day_label}
+                <div className="mt-4 space-y-6">
+                  {Array.from(
+                    program.workout_program_days.reduce((groups, day) => {
+                      const group = groups.get(day.day_number) ?? [];
+                      group.push(day);
+                      groups.set(day.day_number, group);
+                      return groups;
+                    }, new Map<number, DayRow[]>()),
+                  )
+                    .sort(([dayNumberA], [dayNumberB]) => dayNumberA - dayNumberB)
+                    .map(([dayNumber, dayWorkouts]) => (
+                      <div key={dayNumber}>
+                        <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">
+                          Day {dayNumber}
                         </h3>
-                        {day.workout_program_exercises.length === 0 ? (
+                        <div className="mt-2 grid gap-4 md:grid-cols-2">
+                          {dayWorkouts
+                            .slice()
+                            .sort((a, b) => a.sort_order - b.sort_order)
+                            .map((day) => (
+                              <section key={day.id} className="rounded-xl border border-stone-200 bg-white p-4">
+                                <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-600">
+                                  {day.day_label}
+                                </h4>
+                                {day.workout_program_exercises.length === 0 ? (
                           <p className="mt-3 text-sm text-stone-500">No exercises listed.</p>
                         ) : (
                           <ul className="mt-3 space-y-2 text-sm text-stone-700">
@@ -292,18 +310,21 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                       />
                                     </div>
 
-                                    <button
-                                      type="submit"
+                                    <ConfirmSubmitButton
+                                      confirmMessage={`Log ${exercise.exercise_name} with the sets, reps, and weight you entered above?`}
                                       className="inline-flex w-fit items-center justify-center rounded-full bg-emerald-700 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-600"
                                     >
                                       Log this exercise
-                                    </button>
+                                    </ConfirmSubmitButton>
                                   </form>
                                 </li>
                               ))}
                           </ul>
                         )}
-                      </section>
+                              </section>
+                            ))}
+                        </div>
+                      </div>
                     ))}
                 </div>
               </article>

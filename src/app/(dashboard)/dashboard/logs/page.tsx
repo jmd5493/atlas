@@ -138,10 +138,14 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
               Client logs
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
-              Log workouts and history
+              Log something extra &amp; full history
             </h1>
             <p className="mt-2 text-sm text-stone-600">
               Logging for {linkedClient.first_name} {linkedClient.last_name}
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              Already on your assigned plan? Log it from the Assigned workouts page instead.
+              Use this page for anything not on your plan, or to add an entry for an earlier date.
             </p>
           </div>
           <Link
@@ -154,7 +158,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-            <h2 className="text-lg font-semibold text-ink">Add workout log</h2>
+            <h2 className="text-lg font-semibold text-ink">Log something extra</h2>
 
             {statusMessage ? (
               <div

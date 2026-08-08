@@ -92,7 +92,7 @@ export async function updateClient(formData: FormData) {
   redirect("/dashboard/clients?status=updated");
 }
 
-export async function deleteClient(formData: FormData) {
+export async function archiveClient(formData: FormData) {
   const currentUser = await getCurrentUser();
 
   if (!currentUser || currentUser.role !== "trainer") {
@@ -102,24 +102,56 @@ export async function deleteClient(formData: FormData) {
 
   const clientId = String(formData.get("clientId") ?? "").trim();
   if (!clientId) {
-    redirect("/dashboard/clients?status=delete-failed");
+    redirect("/dashboard/clients?status=archive-failed");
     return;
   }
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("clients")
-    .delete()
+    .update({ archived_at: new Date().toISOString() })
     .eq("id", clientId)
     .eq("trainer_id", currentUser.user.id);
 
   if (error) {
     const errorCode = encodeURIComponent(error.code ?? "unknown");
-    const errorMessage = encodeURIComponent(error.message ?? "Unknown delete error");
-    redirect(`/dashboard/clients?status=delete-failed&errorCode=${errorCode}&errorMessage=${errorMessage}`);
+    const errorMessage = encodeURIComponent(error.message ?? "Unknown archive error");
+    redirect(`/dashboard/clients?status=archive-failed&errorCode=${errorCode}&errorMessage=${errorMessage}`);
     return;
   }
 
   revalidatePath("/dashboard/clients");
-  redirect("/dashboard/clients?status=deleted");
+  redirect("/dashboard/clients?status=archived");
+}
+
+export async function restoreClient(formData: FormData) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser || currentUser.role !== "trainer") {
+    redirect("/dashboard/clients?status=forbidden");
+    return;
+  }
+
+  const clientId = String(formData.get("clientId") ?? "").trim();
+  if (!clientId) {
+    redirect("/dashboard/clients?status=restore-failed");
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("clients")
+    .update({ archived_at: null })
+    .eq("id", clientId)
+    .eq("trainer_id", currentUser.user.id);
+
+  if (error) {
+    const errorCode = encodeURIComponent(error.code ?? "unknown");
+    const errorMessage = encodeURIComponent(error.message ?? "Unknown restore error");
+    redirect(`/dashboard/clients?status=restore-failed&errorCode=${errorCode}&errorMessage=${errorMessage}`);
+    return;
+  }
+
+  revalidatePath("/dashboard/clients");
+  redirect("/dashboard/clients?status=restored");
 }
