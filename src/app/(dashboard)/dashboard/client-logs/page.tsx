@@ -45,14 +45,14 @@ export default async function ClientLogsPage() {
   const safeLogs = logs ?? [];
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
+    <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
         <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-amber-700">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
               Trainer review
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
               Client workout logs
             </h1>
             <p className="mt-2 text-sm text-stone-600">
@@ -61,7 +61,7 @@ export default async function ClientLogsPage() {
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
           >
             Back to dashboard
           </Link>
@@ -76,7 +76,7 @@ export default async function ClientLogsPage() {
             {safeLogs.map((log) => (
               <article key={log.id} className="rounded-xl border border-stone-200 bg-stone-50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-base font-semibold text-slate-900">{log.exercise_name}</p>
+                  <p className="text-base font-semibold text-ink">{log.exercise_name}</p>
                   <p className="text-xs text-stone-500">{log.performed_on}</p>
                 </div>
                 <p className="mt-1 text-sm text-stone-600">

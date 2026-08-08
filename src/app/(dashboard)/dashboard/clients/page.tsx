@@ -85,14 +85,14 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const safeClients = clients ?? [];
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
+    <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
         <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-amber-700">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
               Trainer clients
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+            <h1 className="text-3xl font-semibold tracking-tight text-ink">
               Manage clients
             </h1>
             <p className="text-sm leading-6 text-stone-600">
@@ -101,7 +101,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
           >
             Back to dashboard
           </Link>
@@ -109,7 +109,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.25fr]">
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-            <h2 className="text-lg font-semibold text-slate-950">Add client</h2>
+            <h2 className="text-lg font-semibold text-ink">Add client</h2>
 
             {statusMessage ? (
               <div
@@ -132,7 +132,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   id="firstName"
                   name="firstName"
                   required
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
               <div className="space-y-2">
@@ -143,7 +143,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   id="lastName"
                   name="lastName"
                   required
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
               <div className="space-y-2">
@@ -154,7 +154,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   id="email"
                   name="email"
                   type="email"
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
               <div className="space-y-2">
@@ -165,12 +165,12 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   id="notes"
                   name="notes"
                   rows={4}
-                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                  className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
+                className="inline-flex w-full items-center justify-center rounded-full bg-gold-deep px-5 py-3 text-sm font-medium text-white transition hover:bg-ink"
               >
                 Create client
               </button>
@@ -179,7 +179,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-950">Client list</h2>
+              <h2 className="text-lg font-semibold text-ink">Client list</h2>
               <p className="text-sm text-stone-500">{safeClients.length} total</p>
             </div>
 
@@ -197,7 +197,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                     <details className="group">
                       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2">
                         <div>
-                          <h3 className="text-base font-semibold text-slate-900">
+                          <h3 className="text-base font-semibold text-ink">
                             {client.first_name} {client.last_name}
                           </h3>
                           <p className="text-sm text-stone-600">{client.email ?? "No email saved"}</p>
@@ -230,7 +230,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                               name="firstName"
                               defaultValue={client.first_name}
                               required
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                             />
                           </div>
                           <div className="space-y-1">
@@ -242,7 +242,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                               name="lastName"
                               defaultValue={client.last_name}
                               required
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                             />
                           </div>
                         </div>
@@ -255,7 +255,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                             id={`email-${client.id}`}
                             name="email"
                             defaultValue={client.email ?? ""}
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                           />
                         </div>
 
@@ -268,14 +268,14 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                             name="notes"
                             rows={3}
                             defaultValue={client.notes ?? ""}
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                           />
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="submit"
-                            className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700"
+                            className="inline-flex items-center justify-center rounded-full bg-gold-deep px-4 py-2 text-xs font-medium text-white transition hover:bg-ink"
                           >
                             Save changes
                           </button>

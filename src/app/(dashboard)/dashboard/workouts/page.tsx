@@ -100,9 +100,9 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
 
   if (!linkedClient) {
     return (
-      <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
-        <div className="mx-auto w-full max-w-4xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
-          <h1 className="text-2xl font-semibold text-slate-950">Assigned workouts</h1>
+      <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+        <div className="mx-auto w-full max-w-4xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
+          <h1 className="text-2xl font-semibold text-ink">Assigned workouts</h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
             Your login is not linked to a client record yet. Ask your trainer to link
             your auth user to your client profile.
@@ -130,14 +130,14 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
   const safePrograms = programs ?? [];
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,_#fcfbf8_0%,_#f4efe4_100%)] px-5 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_80px_rgba(32,26,18,0.08)] sm:p-8">
+    <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
         <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-700">
               Client workouts
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
               Assigned programs
             </h1>
             <p className="mt-2 text-sm text-stone-600">
@@ -156,7 +156,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
             </Link>
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+              className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
             >
               Back to dashboard
             </Link>
@@ -183,7 +183,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
           <div className="mt-6 space-y-5">
             {safePrograms.map((program) => (
               <article key={program.id} className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-                <h2 className="text-xl font-semibold text-slate-950">{program.title}</h2>
+                <h2 className="text-xl font-semibold text-ink">{program.title}</h2>
                 <p className="mt-2 text-sm text-stone-600">
                   Starts {program.start_date} · {program.duration_weeks} weeks
                 </p>
@@ -209,7 +209,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                               .sort((a, b) => a.sort_order - b.sort_order)
                               .map((exercise) => (
                                 <li key={exercise.id} className="rounded-lg bg-stone-50 px-3 py-3">
-                                  <p className="font-medium text-slate-900">{exercise.exercise_name}</p>
+                                  <p className="font-medium text-ink">{exercise.exercise_name}</p>
                                   <p className="text-stone-600">
                                     {exercise.sets} sets × {exercise.reps} reps
                                     {exercise.target_weight !== null ? ` @ ${exercise.target_weight}` : ""}
@@ -235,7 +235,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                           min={1}
                                           defaultValue={exercise.sets}
                                           required
-                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                                         />
                                       </div>
                                       <div className="space-y-1">
@@ -249,7 +249,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                           min={1}
                                           defaultValue={exercise.reps}
                                           required
-                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                                         />
                                       </div>
                                       <div className="space-y-1">
@@ -262,7 +262,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                           type="number"
                                           step="0.1"
                                           defaultValue={exercise.target_weight ?? ""}
-                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                                         />
                                       </div>
                                       <div className="space-y-1">
@@ -275,7 +275,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                           type="date"
                                           defaultValue={new Date().toISOString().slice(0, 10)}
                                           required
-                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                          className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                                         />
                                       </div>
                                     </div>
@@ -288,7 +288,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                         id={`notes-${exercise.id}`}
                                         name="notes"
                                         placeholder={`Logged from ${day.day_label}`}
-                                        className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                                        className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                                       />
                                     </div>
 
