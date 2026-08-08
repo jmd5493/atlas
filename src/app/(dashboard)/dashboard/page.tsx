@@ -32,6 +32,28 @@ function TrainerHome() {
           Review workout logs
         </Link>
       </div>
+
+      <p className="mt-6 text-xs font-medium uppercase tracking-[0.24em] text-gold">
+        Your own training
+      </p>
+      <p className="mt-2 text-sm leading-6 text-stone-300">
+        Optional — link yourself as a client on the clients page to track your
+        own workouts the same way your clients do.
+      </p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <Link
+          href="/dashboard/workouts"
+          className="rounded-xl bg-white/10 p-3 text-sm transition hover:bg-gold-deep/30"
+        >
+          My assigned workouts
+        </Link>
+        <Link
+          href="/dashboard/logs"
+          className="rounded-xl bg-white/10 p-3 text-sm transition hover:bg-gold-deep/30"
+        >
+          Log something extra
+        </Link>
+      </div>
     </section>
   );
 }

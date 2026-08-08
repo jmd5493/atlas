@@ -16,6 +16,12 @@ type ClientRow = {
   archived_at: string | null;
 };
 
+type SelfLinkedClientRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+};
+
 type ClientsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -36,6 +42,11 @@ function getStatusMessage(
       return { tone: "success", text: "Client restored." };
     case "missing-fields":
       return { tone: "error", text: "First name and last name are required." };
+    case "already-self-linked":
+      return {
+        tone: "error",
+        text: "You already have a linked tracking profile — only one is allowed per trainer account.",
+      };
     case "create-failed":
       return {
         tone: "error",
@@ -100,6 +111,16 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
   const safeClients = clients ?? [];
 
+  // Independent of the active/archived view filter above — a trainer's own
+  // tracking profile should be found (and the create-form checkbox hidden)
+  // regardless of which list they're currently looking at.
+  const { data: selfLinkedClient } = await supabase
+    .from("clients")
+    .select("id, first_name, last_name")
+    .eq("trainer_id", currentUser.user.id)
+    .eq("auth_user_id", currentUser.user.id)
+    .maybeSingle<SelfLinkedClientRow>();
+
   return (
     <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
       <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
@@ -144,6 +165,19 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 }
               >
                 {statusMessage.text}
+              </div>
+            ) : null}
+
+            {selfLinkedClient ? (
+              <div className="mt-4 rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                You&rsquo;re tracking your own workouts as{" "}
+                <span className="font-medium text-ink">
+                  {selfLinkedClient.first_name} {selfLinkedClient.last_name}
+                </span>
+                .{" "}
+                <Link href="/dashboard/workouts" className="font-medium text-gold-deep underline">
+                  Go log a workout
+                </Link>
               </div>
             ) : null}
 
@@ -192,6 +226,19 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                 />
               </div>
+              {selfLinkedClient ? null : (
+                <label className="flex items-start gap-2 rounded-xl border border-stone-200 bg-white p-3 text-sm text-stone-700">
+                  <input
+                    type="checkbox"
+                    name="selfTrack"
+                    className="mt-0.5 h-4 w-4 rounded border-stone-300 text-gold-deep focus:ring-gold-deep"
+                  />
+                  <span>
+                    This is me — create a linked profile so I can track my own
+                    workouts too. (One per trainer account.)
+                  </span>
+                </label>
+              )}
               <button
                 type="submit"
                 className="inline-flex w-full items-center justify-center rounded-full bg-gold-deep px-5 py-3 text-sm font-medium text-white transition hover:bg-ink"
