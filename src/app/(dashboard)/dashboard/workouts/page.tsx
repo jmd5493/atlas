@@ -241,7 +241,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                     <input type="hidden" name="workoutProgramId" value={program.id} />
                                     <input type="hidden" name="exerciseName" value={exercise.exercise_name} />
 
-                                    <div className="grid gap-2 sm:grid-cols-4">
+                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                       <div className="space-y-1">
                                         <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`sets-${exercise.id}`}>
                                           Sets
@@ -270,7 +270,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                           className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                                         />
                                       </div>
-                                      <div className="space-y-1">
+                                      <div className="col-span-2 space-y-1 sm:col-span-1">
                                         <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`weight-${exercise.id}`}>
                                           Weight
                                         </label>
@@ -283,7 +283,7 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                           className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                                         />
                                       </div>
-                                      <div className="space-y-1">
+                                      <div className="col-span-2 space-y-1 sm:col-span-1">
                                         <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500" htmlFor={`date-${exercise.id}`}>
                                           Date
                                         </label>
