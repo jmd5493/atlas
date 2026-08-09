@@ -1,27 +1,25 @@
 export function hasSupabaseConfig() {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
 }
 
-// NEXT_PUBLIC_* vars are only inlined into the browser bundle when accessed
-// as a static, literal `process.env.NEXT_PUBLIC_X` — Next.js's build-time
-// replacement can't follow a dynamic/computed key. Reading them through a
-// `process.env[name]` helper (the previous shape here) works fine
-// server-side, where a real process.env exists at runtime, but silently
-// breaks in any client component: the browser has no process.env at all, so
-// every lookup comes back undefined. Keep both reads as literal statements.
+// Deliberately plain server env vars, not NEXT_PUBLIC_*: NEXT_PUBLIC_ vars
+// get inlined into the client JS bundle at `next build` time, which would
+// mean a different Docker image per environment. This app builds one image
+// and reconfigures which Supabase project it talks to at container start
+// (see the Dockerfile and src/app/api/public-env/route.ts). Only ever call
+// this function on the server — the browser has no process.env at all, so
+// client code gets these values via a fetch to /api/public-env instead
+// (src/lib/supabase/client.ts), never by importing this file directly.
 export function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
 
   if (!url) {
-    throw new Error("Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL");
+    throw new Error("Missing required environment variable: SUPABASE_URL");
   }
 
   if (!anonKey) {
-    throw new Error("Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    throw new Error("Missing required environment variable: SUPABASE_ANON_KEY");
   }
 
   return { url, anonKey };

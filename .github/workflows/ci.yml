@@ -33,13 +33,10 @@ jobs:
         run: npm run test:unit
 
       - name: Production build
-        # Placeholder values, not real Supabase credentials — the build only
-        # needs these to be present and valid-shaped, never calls out to
-        # Supabase at build time. Real credentials belong in deploy-time
-        # secrets, not a CI check that only needs to prove the app compiles.
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+        # No Supabase env vars needed: SUPABASE_URL/SUPABASE_ANON_KEY are
+        # plain server vars read live at container runtime, not baked in at
+        # build time (see src/lib/env.ts) — this build never calls out to
+        # Supabase either way.
         run: npm run build
 
       - name: Docker build check

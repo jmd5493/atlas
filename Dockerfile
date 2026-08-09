@@ -14,17 +14,11 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# NEXT_PUBLIC_* vars are inlined into the client JS bundle at build time,
-# not read at container runtime (see next/dist/docs/.../self-hosting.md,
-# "Environment Variables"). These placeholders are enough to make the build
-# succeed — the same pattern ci.yml already uses for its build-check step.
-# Real values must be supplied as build args once this image is actually
-# deployed against a live Supabase/self-hosted instance; until then this
-# image is an artifact, not something running traffic.
-ARG NEXT_PUBLIC_SUPABASE_URL="https://placeholder.supabase.co"
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY="placeholder-anon-key"
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+# No Supabase config needed here on purpose: SUPABASE_URL/SUPABASE_ANON_KEY
+# are plain server env vars (see src/lib/env.ts), read live at container
+# start, not baked into the build. That's what makes this one image
+# deployable against any environment — dev, Hetzner stage, AWS prod — by
+# just setting different env vars on the running container, no rebuild.
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -35,6 +29,10 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# SUPABASE_URL and SUPABASE_ANON_KEY are required at runtime and deliberately
+# not set here — supply them via `docker run -e` / a K8s Secret per
+# environment. The app fails closed (see src/lib/env.ts) rather than
+# silently serving with no Supabase config.
 
 # Run as a non-root user rather than the image default (root).
 RUN addgroup --system --gid 1001 nodejs \
