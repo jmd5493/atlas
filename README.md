@@ -37,8 +37,7 @@ src/
   lib/
     auth/
     supabase/
-  types/
-    domain.ts
+    programs/
 ```
 
 ## Development
@@ -54,6 +53,44 @@ Run linting:
 ```bash
 npm run lint
 ```
+
+## Testing
+
+Unit tests (pure logic, no server/browser needed):
+
+```bash
+npm run test:unit          # single run
+npm run test:unit:watch    # watch mode
+```
+
+End-to-end tests (Playwright, drives a real browser against a running dev
+server and the real dev Supabase project):
+
+```bash
+cp .env.test.example .env.test.local   # fill in the trainer/client test accounts
+npm run test:e2e
+```
+
+The e2e suite reuses two real accounts in the dev Supabase project — one
+`trainer`-role account and one `client`-role account already linked to a
+`clients` row — rather than a fully isolated test database. It creates and
+cleans up its own clients/programs/logs under clearly `E2E`-tagged names, but
+two things are worth knowing:
+
+- The self-tracking test (`e2e/self-tracking.spec.ts`) permanently claims the
+  trainer account's one self-link slot (`clients_auth_user_id_unique_idx`
+  allows exactly one) with a client named `Trainer Self E2E …` — this is
+  intentional and reused across runs, not cleaned up, since there's no
+  delete-client action to free the slot afterward (archive doesn't clear
+  `auth_user_id`).
+- Real `auth.signUp()` and the email-confirmation flow are *not* exercised
+  live — Supabase's mailer has a low rate limit shared across the whole
+  project, and every real signup burns from it. That mechanism (role
+  hardening + email-based client linking) is instead verified by inserting
+  directly into `auth.users` and checking the resulting `profiles`/`clients`
+  rows, which is a more precise test of the DB trigger anyway.
+
+`npm test` runs both suites in order.
 
 ## Supabase setup
 
