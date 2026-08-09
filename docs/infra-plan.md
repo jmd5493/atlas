@@ -4,6 +4,22 @@ Prep work done ahead of the actual Part 3 build (`BACKLOG.md`), which is
 deliberately hands-on for the person building this, not something to hand
 off wholesale. This doc is the map; the building is the point.
 
+**Tool note: [OpenTofu](https://opentofu.org) (`tofu`), not Terraform
+itself.** A drop-in, Terraform-compatible fork (same HCL, same `.tf`
+files, same `plan`/`apply`/`destroy` workflow, same state format) —
+everything below applies identically, just read `terraform` as `tofu`
+wherever it appears, including the CLI commands.
+
+**Automation direction — noted up front, shapes a few choices below.**
+This project doubles as practice for IaC automation patterns used at
+work, with an eventual Internal Developer Platform (IDP — e.g. a
+Backstage/Port-style self-service catalog) in mind as a later, separate
+phase. Not building an IDP tonight — but it's why the rebuild workflow
+below is specced as a *scripted/automated action* from the start rather
+than "two commands to remember": that's the natural first rung toward an
+eventual self-service "rebuild this environment" action, without
+overbuilding a whole platform around a single EC2 instance right now.
+
 ---
 
 ## Instance sizing: pricing comparison
@@ -39,14 +55,14 @@ Sources: [Vantage — t4g.large](https://instances.vantage.sh/aws/ec2/t4g.large)
 
 ---
 
-## Terraform structure: phased, not one root module
+## OpenTofu structure: phased, not one root module
 
 Answers the "all-or-nothing apply" concern directly, and specifically
 enables **destroying and rebuilding just the EC2 instance** without
 touching networking:
 
 ```
-terraform/
+infra/
   bootstrap/   # S3 bucket + DynamoDB lock table for remote state.
                # Chicken-and-egg: can't store state in S3 before the
                # bucket exists. Apply once, essentially never touched
@@ -55,35 +71,51 @@ terraform/
                # State lives in the S3 backend from bootstrap/. Changes
                # rarely once set.
   compute/     # EC2 instance + EIP association. References network/'s
-               # outputs via a terraform_remote_state data source.
+               # outputs via a terraform_remote_state data source (still
+               # named that in OpenTofu — same state format).
                # This is the layer you destroy/rebuild.
 ```
 
-Rebuild workflow this buys: `terraform destroy` in `compute/` →
-`terraform apply` in `compute/` → fresh instance, same VPC/subnet/security
-group (untouched in `network/`), same public IP (EIP lives in `network/`,
-only its *association* to an instance changes). No re-running `network/`
-or `bootstrap/` at all.
+Rebuild workflow this buys: `tofu destroy` in `compute/` → `tofu apply` in
+`compute/` → fresh instance, same VPC/subnet/security group (untouched in
+`network/`), same public IP (EIP lives in `network/`, only its
+*association* to an instance changes). No re-running `network/` or
+`bootstrap/` at all.
 
 This isn't copying a multi-team pattern for its own sake — it directly
 serves the stated "blow this away and rebuild it" requirement, which a
 single root module doesn't give cleanly (destroying the instance in a
 single-state setup risks touching everything in the same blast radius).
 
+**Automate the rebuild itself, not just the state layout.** Given the
+stated direction (practicing IaC automation patterns, an IDP eventually),
+wrap the `compute/` destroy-then-apply sequence as a real scripted action
+tonight — a `Makefile` target (`make rebuild-compute`) or a
+manually-triggered (`workflow_dispatch`) GitHub Actions workflow that runs
+both commands in order — rather than leaving it as "two commands I
+remember to run." Still manually *triggered* tonight, not auto-triggered
+on a schedule or event; the point is making "rebuild the box" a single
+named, repeatable action instead of a remembered sequence. That's the
+concrete first step toward an eventual IDP self-service button calling
+the same automation — the IDP/catalog layer itself is a distinct later
+phase, not tonight's scope.
+
 ---
 
-## K3s: bootstrapped by Terraform, not a Terraform resource
+## K3s: bootstrapped by OpenTofu, not an OpenTofu resource
 
-There's no Terraform provider resource for "a K3s cluster" — instead,
-Terraform owns the EC2 instance's `user_data` (cloud-init) field, which
-runs the K3s install script on first boot. Practically: Terraform's job
+There's no OpenTofu provider resource for "a K3s cluster" — instead,
+OpenTofu owns the EC2 instance's `user_data` (cloud-init) field, which
+runs the K3s install script on first boot. Practically: OpenTofu's job
 ends at "an instance exists that installs and starts K3s on its own,"
 not "kubectl works and I typed the commands."
 
 Why this over a manual post-boot SSH install: it's what makes the
 `compute/` destroy-and-rebuild workflow above actually complete on its
-own — a fresh instance gets a fresh K3s install automatically, nothing to
-remember to redo by hand after every rebuild.
+own, automated end to end — a fresh instance gets a fresh K3s install
+automatically, nothing to remember to redo by hand after every rebuild.
+This is the same reasoning as the automation note above, one level down
+the stack.
 
 ArgoCD's own bootstrap (the very first `kubectl apply` of its core-profile
 manifests, before it exists to manage anything else via GitOps) is a
@@ -123,33 +155,37 @@ not a decision that forecloses anything by starting combined.
 
 ## IAM: stays simple at this scale
 
-Realistically **one** IAM resource for Terraform to create: an EC2
+Realistically **one** IAM resource for OpenTofu to create: an EC2
 instance role/profile scoped to one S3 bucket (put/get/list only) for the
 Postgres backup target (`BACKLOG.md` Part 3's non-negotiable backups).
 No cross-account roles, no complex trust policies, nothing beyond that at
 this scale.
 
-Terraform's own local credentials (whatever AWS user runs `terraform
-apply` from a laptop) don't need anything new set up for a solo project —
-using the existing account directly is fine to start; a dedicated
-least-privilege IAM user for Terraform itself is a reasonable thing to
-practice deliberately later, not a prerequisite to begin.
+OpenTofu's own local credentials (whatever AWS user runs `tofu apply`
+from a laptop, or a CI runner once the rebuild workflow above is
+automated) don't need anything new set up for a solo project — using the
+existing account directly is fine to start; a dedicated least-privilege
+IAM user/role for OpenTofu itself is a reasonable thing to practice
+deliberately later, not a prerequisite to begin.
 
 ---
 
 ## Build order (the map)
 
-1. `terraform/bootstrap/` — S3 + DynamoDB. Apply once.
-2. `terraform/network/` — VPC, subnet, security group, EIP allocation.
-3. `terraform/compute/` — EC2 (`user_data` installs K3s), EIP association.
+1. `infra/bootstrap/` — S3 + DynamoDB. Apply once.
+2. `infra/network/` — VPC, subnet, security group, EIP allocation.
+3. `infra/compute/` — EC2 (`user_data` installs K3s), EIP association.
 4. Confirm K3s is up (`kubectl get nodes` over SSH or a configured
    kubeconfig).
 5. Bootstrap ArgoCD (core install profile) — decide user_data vs. manual
    per the K3s section above.
 6. Point ArgoCD at the manifests repo/folder (`platform/` first, since the
    app's own image/manifests likely come after this session).
-7. Billing alarm — per `AGENTS.md`, as soon as anything billable exists,
+7. Wrap the `compute/` destroy+apply sequence in a `Makefile` target or
+   `workflow_dispatch` GitHub Actions workflow — the automation step, not
+   just "know the two commands."
+8. Billing alarm — per `AGENTS.md`, as soon as anything billable exists,
    not after.
 
-Sizing, structure, and pricing are prepped; the actual `terraform apply`
+Sizing, structure, and pricing are prepped; the actual `tofu apply`
 sequence is the hands-on part.
