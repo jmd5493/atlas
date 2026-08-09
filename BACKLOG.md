@@ -32,6 +32,22 @@ first if the two ever seem to disagree.
 - **Trainer self-tracking** — done, reuses the client/program/log model.
 - **Deleting a mistaken log entry** — done (migration 010), for both client
   and trainer.
+- **Production error handling** — done. `error.tsx`/`global-error.tsx`/
+  `not-found.tsx` didn't exist at all before this; a real bug hit Next.js's
+  bare default screen. Wasn't previously tracked anywhere in this doc —
+  found via a direct code check while scoping the go-live list, not from a
+  prior backlog item.
+- **Name collected at signup** — done. Signup previously only asked for
+  email/password; `display_name` silently defaulted to the email's local
+  part. Now wired through to the existing `handle_new_user_profile` trigger
+  (migration 001/009). Also not previously tracked here.
+- **Duplicate-email signup handled explicitly** — done. Matches Supabase's
+  explicit "already registered" error text, and separately the
+  anti-enumeration case (a confirmed existing user's re-signup attempt
+  returns success with an empty identities array, not an error) — the
+  generic "check your email" message was actively misleading in that
+  second case, since no email actually gets sent then. Also not previously
+  tracked here.
 
 ### Decided against (was on the original list, deliberately not doing this)
 - **Folding `/dashboard/logs` into the program-detail view** — the original
@@ -59,11 +75,11 @@ stay fine.
   program. Optional — only worth doing if 1.1 actually needs it.
 
 ### Priority 2 — Account self-service
-- **2.1 Change password while logged in** — right now the *only* way to
-  change a password is the forgot-password → email link → reset flow. A
-  normal "account settings" page with a change-password form (calling
-  `supabase.auth.updateUser`, same as the reset flow already does) is a
-  small, obvious gap.
+- **2.1 Change password while logged in — done.** `/dashboard/account`,
+  `supabase.auth.updateUser`, same call the reset-password flow already
+  used. Verified live: changed a real test account's password and
+  confirmed the update, then changed it straight back so the e2e suite's
+  stored credential stays valid.
 - **2.2 Trainer-initiated client linking, without relying on signup-time
   email match** — a trainer who wants to link a client whose signup email
   won't match what's on file (typo, different address than expected) or who
@@ -82,10 +98,14 @@ stay fine.
   Worth one pass looking at every "no X yet" state together.
 - **3.2 Accessibility pass** — color contrast, keyboard navigation, form
   label/`aria-*` correctness. Never explicitly checked this whole build.
-- **3.3 Rate limiting / abuse protection on the app's own server actions** —
-  Supabase enforces its own auth rate limits, but nothing in this app's code
-  limits e.g. repeated `forgot-password` submissions from one source. Low
-  urgency at current scale, worth knowing about before it isn't low urgency.
+- **3.3 Rate limiting on `forgot-password` — done.** In-memory sliding-window
+  limiter (`src/lib/rate-limit.ts`), keyed by the submitted email, 3
+  requests per 15 minutes. Deliberately not backed by Redis/a DB table —
+  fine for a single Node process (today, and the near-term single-EC2
+  target), explicitly flagged in that file for when it stops being true
+  (horizontal scaling needs a shared store instead). Other server actions
+  besides `forgot-password` still have no app-level limiting — revisit if
+  that ever looks like it matters, no signal yet that it does.
 - **3.4 Data export** — trainer exporting a client's log history to CSV.
   Nice-to-have, no signal yet that it's actually needed.
 - **3.5 Notifications** — email (or push, later) when a trainer assigns a
