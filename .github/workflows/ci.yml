@@ -46,3 +46,76 @@ jobs:
         # pushes, gated on this job passing (see its workflow_run trigger).
         if: github.event_name == 'pull_request'
         run: docker build -t atlas:ci-check .
+
+  migrations:
+    name: migrations apply and reverse cleanly
+    runs-on: ubuntu-latest
+    # A throwaway Postgres, not the real dev/prod Supabase project — this
+    # only proves the migration files themselves are structurally sound
+    # (every .up.sql/.down.sql round-trips cleanly), the same check done
+    # locally before these were adopted. It deliberately does NOT touch a
+    # real Supabase project or need any secrets. Whether CI should also
+    # apply migrations to a real environment on merge is a separate,
+    # still-open decision (BACKLOG.md Part 2 Priority 2) — not this job.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stub the auth schema migrations depend on
+        # Migrations reference auth.users/auth.uid()/the authenticated and
+        # anon roles, which real Supabase (Cloud or self-hosted) provisions
+        # via GoTrue — not something these migration files create
+        # themselves. Minimal stand-ins, just enough for the DDL to run;
+        # not a behavioral test of auth.
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres <<'SQL'
+          create schema if not exists auth;
+          create extension if not exists pgcrypto;
+          create table auth.users (
+            id uuid primary key default gen_random_uuid(),
+            email text
+          );
+          create or replace function auth.uid() returns uuid
+          language sql stable
+          as $$ select null::uuid $$;
+          create role authenticated;
+          create role anon;
+          SQL
+
+      - name: Apply all migrations (up)
+        run: |
+          docker run --rm --network host \
+            -v "$(pwd)/supabase/migrations:/migrations" \
+            migrate/migrate -path=/migrations \
+            -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" \
+            up
+
+      - name: Reverse all migrations (down)
+        run: |
+          docker run --rm --network host \
+            -v "$(pwd)/supabase/migrations:/migrations" \
+            migrate/migrate -path=/migrations \
+            -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" \
+            down -all
+
+      - name: Re-apply (confirm the round trip is clean)
+        run: |
+          docker run --rm --network host \
+            -v "$(pwd)/supabase/migrations:/migrations" \
+            migrate/migrate -path=/migrations \
+            -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" \
+            up

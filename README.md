@@ -122,11 +122,47 @@ The auth slice reads role and display name from `public.profiles`.
 
 ## Database migrations
 
-Run these in order in Supabase SQL Editor.
+Migrations live in `supabase/migrations/` as `<timestamp>_<name>.up.sql` /
+`<timestamp>_<name>.down.sql` pairs, applied with
+[`golang-migrate`](https://github.com/golang-migrate/migrate) via its
+official Docker image (`migrate/migrate`) — no local Go toolchain needed,
+just Docker. This is plain Postgres tooling, not Supabase-specific: the
+same image/command works against Supabase Cloud or a self-hosted Postgres
+instance, so local dev, CI, and prod all use the identical workflow.
+
+```bash
+SUPABASE_DB_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require" \
+  npm run db:migrate          # apply all pending migrations
+SUPABASE_DB_URL="..." npm run db:migrate:down   # roll back one migration
+```
+
+`SUPABASE_DB_URL` is a plain Postgres connection string (get it from
+Supabase project settings → Database), not a personal access token. Never
+commit this value; it's a per-environment secret (local shell env, or a CI
+secret).
+
+Every migration has a real, tested `.down.sql` — verified with a full
+up → down → up round trip against a throwaway Postgres container before
+being adopted here, not just written and assumed correct. Two are
+worth knowing about before ever actually running them:
+- `20260808191259_workout_days_multiple_per_day.down.sql` can fail on real
+  data — it re-adds a uniqueness constraint that the multi-workout-per-day
+  feature is specifically designed to violate.
+- `20260808193356_signup_hardening_and_client_linking.down.sql` reopens a
+  real security hole (client-controlled role self-elevation on signup) —
+  only run it deliberately, not as a routine rollback.
+
+golang-migrate tracks applied versions in a `public.schema_migrations`
+table it manages itself (one row: current version + a dirty flag) — not
+auto-exposed via the API (no RLS grants on it), same default-deny posture
+as any other ungranted table.
+
+The list below is the historical record of what each migration did; the
+file paths now point at `supabase/migrations/` with the `.up.sql` suffix.
 
 ### 001 profiles
 
-File: `supabase/schema/001_profiles.sql`
+File: `supabase/migrations/20260702180209_profiles.up.sql`
 
 Verification query:
 
@@ -152,7 +188,7 @@ where p.id is null;
 
 ### 002 clients
 
-File: `supabase/schema/002_clients.sql`
+File: `supabase/migrations/20260702180210_clients.up.sql`
 
 Verification query:
 
@@ -165,7 +201,7 @@ limit 20;
 
 ### 003 workout programs
 
-File: `supabase/schema/003_workout_programs.sql`
+File: `supabase/migrations/20260702180211_workout_programs.up.sql`
 
 Verification queries:
 
@@ -192,7 +228,7 @@ limit 20;
 
 ### 004 client access and exercise logs
 
-File: `supabase/schema/004_client_access_and_logs.sql`
+File: `supabase/migrations/20260702180212_client_access_and_logs.up.sql`
 
 Verification queries:
 
@@ -229,7 +265,7 @@ order by created_at desc;
 
 ### 005 clients delete policy
 
-File: `supabase/schema/005_clients_delete_policy.sql`
+File: `supabase/migrations/20260702180213_clients_delete_policy.up.sql`
 
 Purpose:
 
@@ -237,7 +273,7 @@ Purpose:
 
 ### 006 workout program delete policies
 
-File: `supabase/schema/006_workout_program_delete_policies.sql`
+File: `supabase/migrations/20260808163306_workout_program_delete_policies.up.sql`
 
 Purpose:
 
@@ -246,7 +282,7 @@ Purpose:
 
 ### 007 clients archive
 
-File: `supabase/schema/007_clients_archive.sql`
+File: `supabase/migrations/20260808191258_clients_archive.up.sql`
 
 Purpose:
 
@@ -254,7 +290,7 @@ Purpose:
 
 ### 008 workout days multiple per day
 
-File: `supabase/schema/008_workout_days_multiple_per_day.sql`
+File: `supabase/migrations/20260808191259_workout_days_multiple_per_day.up.sql`
 
 Purpose:
 
@@ -262,7 +298,7 @@ Purpose:
 
 ### 009 signup hardening and client linking
 
-File: `supabase/schema/009_signup_hardening_and_client_linking.sql`
+File: `supabase/migrations/20260808193356_signup_hardening_and_client_linking.up.sql`
 
 Purpose:
 
@@ -271,7 +307,7 @@ Purpose:
 
 ### 010 exercise logs delete policies
 
-File: `supabase/schema/010_exercise_logs_delete_policies.sql`
+File: `supabase/migrations/20260808211207_exercise_logs_delete_policies.up.sql`
 
 Purpose:
 

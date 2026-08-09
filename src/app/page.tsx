@@ -9,7 +9,7 @@ export default function Home() {
           Fitness coaching, kept simple.
         </h1>
         <p className="mt-4 max-w-xl text-base leading-7 text-stone-700 sm:text-lg">
-          Your coaching workspace for programs, workout logging, and progress —
+          Your coaching workspace for programs, workout logging, and progress
           in one place for you and your clients.
         </p>
 

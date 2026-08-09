@@ -24,7 +24,7 @@ export default async function LoginPage() {
               Sign in to your coaching workspace.
             </h1>
             <p className="max-w-xl text-base leading-7 text-stone-700 sm:text-lg">
-              Programs, workout logging, and progress — all in one place, for
+              Programs, workout logging, and progress all in one place, for
               trainer and client alike.
             </p>
             <div className="grid gap-3 text-sm text-stone-700 sm:grid-cols-2">

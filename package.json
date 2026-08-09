@@ -10,7 +10,9 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
-    "test": "npm run test:unit && npm run test:e2e"
+    "test": "npm run test:unit && npm run test:e2e",
+    "db:migrate": "docker run --rm -v \"$(pwd)/supabase/migrations:/migrations\" migrate/migrate -path=/migrations -database \"$SUPABASE_DB_URL\" up",
+    "db:migrate:down": "docker run --rm -v \"$(pwd)/supabase/migrations:/migrations\" migrate/migrate -path=/migrations -database \"$SUPABASE_DB_URL\" down 1"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
