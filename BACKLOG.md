@@ -229,9 +229,43 @@ Every migration this whole build (001 through 010) was applied by hand: a
 personal access token pasted into a chat, `curl`'d against the Supabase
 Management API, one migration at a time, checked by hand. That worked, but
 it's the least automatable, least auditable part of the entire setup right
-now. Needs an actual answer before this is a real pipeline — most likely the
-Supabase CLI's migration commands run as a controlled CI/CD step with a
-properly scoped credential, not an ad hoc PAT.
+now, and the PAT/Management-API approach is specifically **Supabase
+Cloud-only** — it won't exist once/if Postgres is self-hosted (see Part 3),
+so this can't stay as-is regardless.
+
+**Decided, and implemented: `golang-migrate` via its official Docker image
+(`migrate/migrate`), not the Supabase CLI.** The Supabase CLI's migration
+commands would also have worked (they're Postgres-agnostic under the hood,
+just a plain connection string), but they're still Supabase-branded
+tooling — file-naming convention, tracking table, the works — none of which
+transfers to a project that isn't using Supabase. `golang-migrate` is
+genuinely vendor-neutral (works against any Postgres, not just this stack),
+and its official image is the same one that'll run as the eventual K8s
+migration Job (Priority 4/Part 3's PreSync hook), so the same tool carries
+through local dev → CI → cluster instead of being CI-only tooling.
+
+- Migrations live in `supabase/migrations/` as `<timestamp>_<name>.up.sql` /
+  `<timestamp>_<name>.down.sql` pairs — every migration has both, including
+  all 10 pre-existing ones (not just going forward), each verified with a
+  real up → down → up round trip against a throwaway Postgres container
+  before being trusted.
+- Two down migrations are intentionally not "safe defaults": one
+  (`workout_days_multiple_per_day`) can fail against real data by design,
+  one (`signup_hardening_and_client_linking`) reopens a real security hole
+  if actually run — both documented inline and in the README, not silently
+  reversible.
+- `npm run db:migrate` / `npm run db:migrate:down`, driven by a
+  `SUPABASE_DB_URL` Postgres connection string (not a PAT) — identical
+  command in local dev, CI, and prod regardless of hosting.
+- The old Supabase CLI scaffold (`supabase/config.toml`, the `supabase` npm
+  dependency) was removed rather than left alongside the new approach.
+- **CI now has a `migrations` job** (`ci.yml`) that applies every migration,
+  reverses all of them, then re-applies — against a throwaway `postgres:16`
+  service container, not the real dev/prod Supabase project. Catches broken
+  `.up.sql`/`.down.sql` files before merge without needing any real
+  credentials. This is deliberately *not* the same thing as CI applying
+  migrations to a real environment on merge — that's still the open Part 2
+  Priority 2 decision, untouched by this.
 
 ---
 
@@ -254,17 +288,23 @@ not because it's the cheaper option, because it isn't. If cost pressure ever
 becomes the deciding factor, Hetzner is the cheaper fallback with the same
 manifest pattern (K3s + ArgoCD + standard K8s primitives), not a redesign.
 
-**Open follow-on idea (not scheduled):** revisit Hetzner as an actual second
-*stage* environment later — not instead of AWS, alongside it — e.g. a
-cheap Hetzner box as a pre-prod/staging tier that ArgoCD also deploys to
-before promoting to the AWS prod box. Same manifest pattern either way, so
-this is additive whenever it's wanted, not a redesign. Not being pursued now
-— AWS prod build-out comes first. One thing this idea already prompted: the
-app image now reads its Supabase config from live container env vars, not
-build-time baking (Part 2 Priority 3) — specifically so a Hetzner-stage tier
-and AWS-prod could someday run the exact same image, reconfigured per
-environment, with no rebuild-per-target needed whenever this actually
-happens.
+**Updated direction: stage + prod both on one AWS box, not a second Hetzner
+box** — evaluated running Hetzner as the staging tier (cheaper in isolation,
+~$5–13/mo) against consolidating both environments onto a single bigger EC2
+instance as two K8s namespaces. Consolidating costs more in raw EC2 terms
+(one instance-size tier up, roughly +$50/mo — confirm actual current pricing
+before committing) but avoids maintaining two cloud providers' worth of
+Terraform/credentials for a one-person project whose explicit goal is AWS
+depth. **Hetzner is not fully ruled out** — still an open fallback if AWS
+cost pressure becomes real, or a possible future third environment — just
+not the default staging plan right now. Size the box by measuring real usage
+(see Sizing below) rather than pre-provisioning for a worst-case guess. One
+piece of prep from when Hetzner-as-second-environment was still the live
+idea stays useful regardless of which box(es) actually run it: the app
+image reads its Supabase config from live container env vars, not
+build-time baking (Part 2 Priority 3) — so the same image works across
+stage/prod namespaces on one box, or a future Hetzner box, with zero
+rebuild-per-target either way.
 
 **Terraform owns the AWS layer**: VPC, EC2 instance, security group, Elastic
 IP. State in an S3 backend + DynamoDB lock table from the start, not local
@@ -288,6 +328,17 @@ not a corner case.
   This app uses zero Realtime and zero Storage today — skip both. Not a
   one-way door: add Storage later exactly when a feature (e.g. client
   progress photos) actually needs it, same pattern, just another manifest.
+- **Stage and prod share one self-hosted Postgres instance, as two logical
+  databases** (e.g. `stage_db` / `prod_db`), not two separate instances and
+  explicitly not RDS. Considered RDS for the stage/prod split (a
+  `db.t4g.micro` would be cheap, ~$12–15/mo after the 12-month free tier)
+  but `AGENTS.md` already names RDS specifically as a managed service to
+  avoid by default, for the same cost-and-learning-goal reasoning as
+  avoiding EKS — bringing it in for this would reverse that decision, not
+  extend it, and a single Postgres instance holding multiple databases is
+  ordinary Postgres administration that costs nothing extra. Revisit
+  *instance* separation (still self-hosted, not managed) only if real usage
+  shows stage/prod sharing an instance is actually a problem.
 - **Same client code, no rewrite** — `@supabase/supabase-js`, `.auth.*`
   calls, RLS policies with `auth.uid()`, all of it keeps working unchanged.
   Only `NEXT_PUBLIC_SUPABASE_URL` changes, from Supabase's cloud to the
@@ -312,7 +363,22 @@ Worth being honest rather than optimistic: **ArgoCD is the piece most likely
 to blow the budget on a small box** — its default install assumes it might
 manage many clusters at scale (server, repo-server, application-controller,
 Redis, dex, notifications-controller). Use ArgoCD's **"core" install
-profile** (single-cluster, no HA) instead of the default manifests.
+profile** (single-cluster, no HA) instead of the default manifests. **Start
+with ArgoCD** (core profile); if its footprint proves to actually be a
+problem once measured on real hardware (not guessed from the table below),
+**Flux is the named fallback** — same GitOps principle (Git is truth,
+nothing manual touches the cluster), generally lighter controllers. Either
+way, never fall back to manual `kubectl apply`/`helm upgrade` for anything
+meant to persist — that's a hard line from `AGENTS.md`, not a sizing
+decision.
+
+**Sizing methodology: measure, don't pre-provision for a worst case.**
+Deploy prod first on `t4g.large`, let `metrics-server` report actual usage,
+*then* decide whether stage (running alongside prod as a second namespace on
+the same box) needs a bigger instance. Stage also doesn't need to run
+24/7 — scaling its app/auth pods to 0 replicas when not actively testing
+(a Git-committed change, still GitOps) is a cheaper lever than upsizing the
+box, and should be tried before assuming `t4g.xlarge` is necessary.
 
 Rough tally for everything on one box:
 
@@ -363,19 +429,34 @@ pointed at**, not a second Kubernetes environment. If a real staging
 environment is ever needed later, that's a second namespace on the same
 box, not a second box.
 
-### Observability
+### Observability — pinned, not decided yet
 Keep this proportional to the box it's running on — the sizing table above
 already assumes zero budget for a full observability stack. **A full
 Prometheus + Grafana + Loki stack does not fit** (Prometheus alone commonly
 wants 1–2 GB+ RAM even for small setups, Loki adds several hundred MB to a
-GB more, before Grafana or any exporters). Options, roughly cheapest-first:
-K3s's built-in `metrics-server` (already there, near-zero extra cost, covers
-basic CPU/RAM) plus `kubectl logs`/`journalctl` for now; a single lightweight
-binary (e.g. Netdata, or a single-node Victoria Metrics / Grafana Alloy
-setup) if more is needed later; the full Prometheus+Grafana+Loki stack only
-if this box ever gets resized specifically to afford it. Defer past a
-minimal starting point until the app's actual failure modes call for more —
-don't build monitoring for problems that haven't happened yet.
+GB more, before Grafana or any exporters). Start with what's already free:
+K3s's built-in `metrics-server` (near-zero extra cost, covers basic CPU/RAM
+— this is also what drives the sizing decision above) plus `kubectl
+logs`/`journalctl`.
+
+Grafana specifically is wanted here — real interest in learning it
+hands-on, work uses Dynatrace which is enterprise-overkill for this. Grafana
+the dashboard UI itself is light (~100–200 MB); the heavy part is always the
+backend it queries, so it doesn't have to mean the full stack above. Two
+candidate lightweight paths, **neither decided yet, pin for later**:
+1. Self-hosted Grafana + Victoria Metrics (single-node) instead of
+   Prometheus — Prometheus-compatible query language/dashboards, much
+   lighter footprint, fits the "single lightweight binary" tier. Skip Loki,
+   keep `kubectl logs`/`journalctl` for logs. Keeps everything self-hosted,
+   consistent with the project's overall self-hosting posture.
+2. Grafana Cloud free tier + a lightweight shipping agent (Grafana Alloy,
+   ~50–150 MB) — storage/backend runs off-box on Grafana's infrastructure
+   for free within their limits, near-zero footprint on the EC2 instance,
+   but monitoring data lives off-box rather than fully self-hosted.
+
+Revisit once the app's actual failure modes call for more than
+`metrics-server` — don't build monitoring for problems that haven't
+happened yet.
 
 ### External-service infra (Supabase-adjacent, still real infra work)
 - **SMTP provider for auth email** — signup confirmation and password reset
