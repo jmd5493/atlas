@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { deleteExerciseLog } from "@/app/actions/logs";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -22,7 +24,34 @@ type ClientLogRow = {
   } | null;
 };
 
-export default async function ClientLogsPage() {
+type ClientLogsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getStatusMessage(status: string | undefined, errorCode: string | undefined, errorMessage: string | undefined) {
+  switch (status) {
+    case "deleted":
+      return { tone: "success", text: "Log entry deleted." };
+    case "delete-failed":
+      return {
+        tone: "error",
+        text: `Delete failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+      };
+    default:
+      return null;
+  }
+}
+
+export default async function ClientLogsPage({ searchParams }: ClientLogsPageProps) {
+  const resolvedParams = searchParams ? await searchParams : undefined;
+  const statusValue = resolvedParams?.status;
+  const status = Array.isArray(statusValue) ? statusValue[0] : statusValue;
+  const errorCodeValue = resolvedParams?.errorCode;
+  const errorCode = Array.isArray(errorCodeValue) ? errorCodeValue[0] : errorCodeValue;
+  const errorMessageValue = resolvedParams?.errorMessage;
+  const errorMessage = Array.isArray(errorMessageValue) ? errorMessageValue[0] : errorMessageValue;
+  const statusMessage = getStatusMessage(status, errorCode, errorMessage);
+
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
@@ -67,6 +96,18 @@ export default async function ClientLogsPage() {
           </Link>
         </header>
 
+        {statusMessage ? (
+          <div
+            className={
+              statusMessage.tone === "success"
+                ? "mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                : "mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            }
+          >
+            {statusMessage.text}
+          </div>
+        ) : null}
+
         {safeLogs.length === 0 ? (
           <div className="mt-6 rounded-xl border border-dashed border-stone-300 bg-stone-50 p-5 text-sm text-stone-600">
             No client logs yet.
@@ -92,6 +133,16 @@ export default async function ClientLogsPage() {
                 {log.notes ? (
                   <p className="mt-2 text-sm leading-6 text-stone-700">{log.notes}</p>
                 ) : null}
+                <form action={deleteExerciseLog} className="mt-2">
+                  <input type="hidden" name="logId" value={log.id} />
+                  <input type="hidden" name="redirectTo" value="/dashboard/client-logs" />
+                  <ConfirmSubmitButton
+                    confirmMessage={`Delete ${log.clients?.first_name ?? "this client"}'s ${log.exercise_name} entry from ${log.performed_on}? This can't be undone.`}
+                    className="text-xs font-medium text-red-600 hover:underline"
+                  >
+                    Delete entry
+                  </ConfirmSubmitButton>
+                </form>
               </article>
             ))}
           </div>
