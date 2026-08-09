@@ -32,17 +32,29 @@ skill-building goal, not the app code itself.
   DB is external, so the app itself must stay horizontally replaceable)
 
 ## Deployment path (current → long-term)
-- **Now (POC/staging):** Hetzner VPS, single-node K3s, ArgoCD for GitOps
-- **Production target:** AWS (EC2 self-managed K3s initially — same pattern as
-  Hetzner, not EKS yet — deferred until there's a reason to pay for a managed
-  control plane)
+- **Decided (deviates from an earlier Hetzner-staging-first plan — see
+  BACKLOG.md Part 3 for the full reasoning):** AWS-first, single self-managed
+  EC2 instance running K3s, EC2 self-managed (not EKS — deferred until
+  there's a reason to pay for a managed control plane), chosen deliberately
+  for Terraform/AWS learning, NOT because it's cheaper (Hetzner would be
+  ~3-5x cheaper for equivalent compute; that tradeoff is on record).
+- Terraform owns the AWS layer (VPC/EC2/security group/Elastic IP), with
+  S3+DynamoDB remote state from the start. ArgoCD (core install profile, not
+  the default) owns everything inside the cluster — complementary layers,
+  not competing tools.
 - Deploys should be written so the target cloud is swappable: avoid
-  Hetzner-specific or AWS-specific assumptions baked into manifests. Use
-  standard K8s primitives (Deployment, Service, Ingress) over provider-specific
-  shortcuts wherever there's a choice.
+  provider-specific assumptions baked into manifests. Use standard K8s
+  primitives (Deployment, Service, Ingress) over provider-specific shortcuts
+  wherever there's a choice.
 - All deploys go through ArgoCD (Git as source of truth) — never suggest
-  `kubectl apply` directly against a running cluster for anything meant to
-  persist. Manifest changes go through the repo.
+  `kubectl apply` / `helm upgrade` directly against a running cluster for
+  anything meant to persist. Manifest changes go through the repo. Building
+  and pushing the Docker image is CI (on merge to main); the only action CD
+  ever takes is a Git commit updating an image tag — ArgoCD reconciles from
+  there.
+- See BACKLOG.md Part 3 for full detail: DB/auth hosting (self-hosted
+  Postgres + GoTrue + PostgREST vs. managed Supabase Cloud), instance sizing,
+  observability scope, and current sequencing/status.
 
 ## Cost awareness (AWS specifically)
 This is a personal project on a limited AWS credit balance, not company money.
@@ -73,7 +85,8 @@ noted after the fact.
 
 ## Standards (treat this like it's hosted for a paying company)
 - Secrets never hardcoded or committed — env vars / K8s secrets only
-- Separate config for local dev vs. staging (Hetzner) vs. prod (future AWS)
+- Separate config for local dev vs. prod (AWS) — local dev is not a second
+  deployed environment; it's npm run dev against a free-tier Supabase project
 - Every deployable change should be revertible via Git (GitOps discipline,
   not manual fixes on the running cluster)
 - Auth and any client data handling should assume real user data is at stake
