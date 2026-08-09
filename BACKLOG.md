@@ -171,44 +171,47 @@ pipeline step (see Priority 4 below).
   (e.g. delete SHA tags past the last N, keep `latest`) before this runs
   unattended for a while. Add when this is actually driving a live deploy,
   not before.
-- **Real caveat to resolve before deploying this image, not before pushing
-  it, decided:** `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  are inlined into the client JS bundle at `next build` time, not read at
+- **Build-time vs. runtime Supabase config — resolved, superseding the
+  build-time-baking call originally recorded here.** `NEXT_PUBLIC_*` vars
+  get inlined into the client JS bundle at `next build` time, not read at
   container runtime (Next.js docs, self-hosting guide, "Environment
-  Variables"). The image currently builds with placeholder values, same as
-  the existing CI build-check job.
+  Variables"), which would have meant a rebuild per environment. Revisited
+  once Hetzner-stage came back up as a real (if still unscheduled)
+  possibility alongside AWS prod — two real environments made "one image,
+  reconfigured at deploy" worth the extra plumbing now rather than later.
+  Implemented:
+  - Renamed the vars to plain `SUPABASE_URL`/`SUPABASE_ANON_KEY` (no
+    `NEXT_PUBLIC_` prefix) — read live from `process.env` on the server,
+    never inlined into a build.
+  - Added `src/app/api/public-env/route.ts`, `dynamic = "force-dynamic"`:
+    the one bridge point that hands the container's live env vars to the
+    browser. The single client-side caller
+    (`src/lib/supabase/client.ts` → `src/components/auth/reset-password-form.tsx`)
+    fetches it instead of reading `process.env` directly.
+  - `src/app/(auth)/reset-password/page.tsx` forced dynamic too — it was
+    the one route with no other dynamic API call, so without this
+    Next.js would've statically prerendered it at build and frozen
+    `hasSupabaseConfig()`'s result regardless of runtime.
+  - Dockerfile/`ci.yml`: dropped the build-time `ARG`s and CI placeholder
+    env vars entirely — nothing reads Supabase config during `next
+    build` anymore.
+  - Verified locally: same built image, run twice with different
+    `SUPABASE_URL`/`SUPABASE_ANON_KEY` via `docker run -e`, served two
+    different configs from `/api/public-env` with no rebuild; a
+    no-env-vars run failed closed (`503` from the endpoint, login page
+    still rendered its "not configured" state rather than crashing).
+  - `image.yml` stays a single build — one image now really does work
+    for every environment, so the matrix-build path recorded earlier is
+    no longer needed at all, for Hetzner-stage or otherwise.
 
-  Two real patterns exist: (A) bake at build time, rebuild per environment
-  when the target changes; (B) write a runtime-generated public config
-  (e.g. `/api/config` or `env.js` sourced from the container's actual env
-  vars at startup) so client code never reads `process.env.NEXT_PUBLIC_*`
-  directly, enabling one immutable image promoted unchanged across
-  environments. Decided on **(A)** for now: Atlas has exactly one real
-  deploy target today (local dev never touches this image at all — it's
-  `npm run dev` against a free Supabase project), so "build once, promote
-  everywhere" solves a problem that doesn't exist yet. Revisit (B) only if
-  a second real deployed environment shows up (the backlogged
-  Hetzner-stage-tier idea, or a dedicated CI Supabase project needing its
-  own image variant) — that's the trigger condition, not a default to
-  build toward speculatively.
-
-  **When that trigger fires** (Hetzner-stage is still just a backlogged
-  maybe as of this writing, not scheduled — see the AWS-first decision
-  below): `image.yml` becomes a matrix build, one job per environment,
-  each pulling its own `NEXT_PUBLIC_SUPABASE_URL`/`ANON_KEY` from a
-  GitHub Environment (Settings → Environments → `staging`/`production`,
-  free, built into Actions) and pushing to a distinct tag
-  (`atlas:stage-<sha>`, `atlas:prod-<sha>`). Nothing in the current
-  single-build design blocks this later — it's additive, not a rework.
-
-  Worth noting these vars were never a secrets concern in the first
-  place: the anon key is designed to be public (Supabase's security model
-  is RLS-enforced, not secrecy of this key — same value is already
+  These vars were never a secrets concern in the first place, worth
+  repeating: the anon key is designed to be public (Supabase's security
+  model is RLS-enforced, not secrecy of this key — same value is already
   visible in any browser's Network tab on the live site, with or without
   Docker). The real secrets to keep out of this image whenever they show
-  up — `service_role` key, DB/SMTP credentials, anything without the
-  `NEXT_PUBLIC_` prefix — go through K8s Secrets at deploy time, never
-  `ARG`/`ENV` in the Dockerfile.
+  up — `service_role` key, DB/SMTP credentials — go through K8s Secrets
+  at deploy time, never a Dockerfile `ARG`/`ENV` or this `/api/public-env`
+  pattern (that route only ever serves values already meant to be public).
 
 ### Priority 4 — CD: hand the new image tag to ArgoCD
 This is the part that's actually "CD," and it's thinner than it might sound:
@@ -256,7 +259,12 @@ manifest pattern (K3s + ArgoCD + standard K8s primitives), not a redesign.
 cheap Hetzner box as a pre-prod/staging tier that ArgoCD also deploys to
 before promoting to the AWS prod box. Same manifest pattern either way, so
 this is additive whenever it's wanted, not a redesign. Not being pursued now
-— AWS prod build-out comes first.
+— AWS prod build-out comes first. One thing this idea already prompted: the
+app image now reads its Supabase config from live container env vars, not
+build-time baking (Part 2 Priority 3) — specifically so a Hetzner-stage tier
+and AWS-prod could someday run the exact same image, reconfigured per
+environment, with no rebuild-per-target needed whenever this actually
+happens.
 
 **Terraform owns the AWS layer**: VPC, EC2 instance, security group, Elastic
 IP. State in an S3 backend + DynamoDB lock table from the start, not local
