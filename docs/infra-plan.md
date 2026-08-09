@@ -184,7 +184,7 @@ deliberately later, not a prerequisite to begin.
 7. Wrap the `compute/` destroy+apply sequence in a `Makefile` target or
    `workflow_dispatch` GitHub Actions workflow — the automation step, not
    just "know the two commands."
-8. Billing alarm — per `AGENTS.md`, as soon as anything billable exists,
+8. Billing alarm — per `BACKLOG.md` Part 3, as soon as anything billable exists,
    not after.
 
 Sizing, structure, and pricing are prepped; the actual `tofu apply`
