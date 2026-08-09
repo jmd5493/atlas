@@ -170,6 +170,13 @@ export async function requestPasswordReset(
     return { message: "Enter your email address.", tone: "error" };
   }
 
+  if (!hasSupabaseConfig()) {
+    return {
+      message: "Add SUPABASE_URL and SUPABASE_ANON_KEY to .env.local first.",
+      tone: "error",
+    };
+  }
+
   // Keyed by the submitted email, not caller IP: this form is reachable
   // without auth, and repeated submissions against one email are the
   // actual abuse case worth limiting (Supabase's own rate limits are
@@ -183,13 +190,6 @@ export async function requestPasswordReset(
   if (!allowed) {
     return {
       message: "Too many requests for that email. Try again in a few minutes.",
-      tone: "error",
-    };
-  }
-
-  if (!hasSupabaseConfig()) {
-    return {
-      message: "Add SUPABASE_URL and SUPABASE_ANON_KEY to .env.local first.",
       tone: "error",
     };
   }

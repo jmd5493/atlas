@@ -22,9 +22,8 @@ const MAX_TRACKED_KEYS = 10_000;
 
 /**
  * Returns true if `key` is allowed another request right now, false if it's
- * currently rate-limited. Records the attempt either way isn't quite right —
- * only successful (allowed) checks record a new timestamp, so a limited
- * caller doesn't get to "use up" a slot it was denied.
+ * currently rate-limited. Only successful (allowed) checks record a new
+ * timestamp, so a limited caller doesn't get to "use up" a slot it was denied.
  */
 export function checkRateLimit(
   key: string,

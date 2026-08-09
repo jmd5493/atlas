@@ -39,6 +39,8 @@ test.describe("signup page", () => {
   // would be anyway, and doesn't cost mailer quota on every run.
   test("renders email/password fields and links back to login", async ({ page }) => {
     await page.goto("/signup");
+    await expect(page.locator("#displayName")).toBeVisible();
+    await expect(page.locator("#displayName")).toHaveAttribute("required", "");
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.locator("#password")).toBeVisible();
     await expect(page.locator('a:has-text("Sign in")')).toHaveAttribute("href", "/login");
