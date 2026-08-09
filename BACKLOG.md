@@ -192,6 +192,15 @@ pipeline step (see Priority 4 below).
   own image variant) — that's the trigger condition, not a default to
   build toward speculatively.
 
+  **When that trigger fires** (Hetzner-stage is still just a backlogged
+  maybe as of this writing, not scheduled — see the AWS-first decision
+  below): `image.yml` becomes a matrix build, one job per environment,
+  each pulling its own `NEXT_PUBLIC_SUPABASE_URL`/`ANON_KEY` from a
+  GitHub Environment (Settings → Environments → `staging`/`production`,
+  free, built into Actions) and pushing to a distinct tag
+  (`atlas:stage-<sha>`, `atlas:prod-<sha>`). Nothing in the current
+  single-build design blocks this later — it's additive, not a rework.
+
   Worth noting these vars were never a secrets concern in the first
   place: the anon key is designed to be public (Supabase's security model
   is RLS-enforced, not secrecy of this key — same value is already
