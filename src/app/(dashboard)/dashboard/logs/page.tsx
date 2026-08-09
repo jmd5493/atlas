@@ -79,7 +79,10 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
     redirect("/login");
   }
 
-  if (currentUser.role !== "client") {
+  // Trainers can reach this page too, for their own optional self-tracking
+  // client record (see /dashboard/clients) — the linkedClient lookup below
+  // is what actually decides what they see, same as for a client account.
+  if (currentUser.role !== "client" && currentUser.role !== "trainer") {
     redirect("/dashboard");
   }
 
@@ -97,14 +100,24 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
         <div className="mx-auto w-full max-w-4xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
           <h1 className="text-2xl font-semibold text-ink">Log workouts</h1>
           <p className="mt-3 text-sm leading-6 text-stone-600">
-            Your login is not linked to a client record yet. Ask your trainer to link
-            your auth user to your client profile.
+            {currentUser.role === "trainer" ? (
+              <>
+                You don&rsquo;t have a self-tracking profile yet. Go to Manage
+                clients and check &ldquo;This is me&rdquo; when creating a client
+                record for yourself.
+              </>
+            ) : (
+              <>
+                Your login is not linked to a client record yet. Ask your trainer
+                to link your auth user to your client profile.
+              </>
+            )}
           </p>
           <Link
-            href="/dashboard"
+            href={currentUser.role === "trainer" ? "/dashboard/clients" : "/dashboard"}
             className="mt-5 inline-flex rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700"
           >
-            Back to dashboard
+            {currentUser.role === "trainer" ? "Go to Manage clients" : "Back to dashboard"}
           </Link>
         </div>
       </main>
@@ -134,7 +147,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
       <div className="mx-auto w-full max-w-6xl rounded-[2rem] border border-white/10 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-8">
         <header className="flex flex-col gap-4 border-b border-stone-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-700">
+            <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
               Client logs
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
@@ -271,7 +284,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
 
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center rounded-full bg-emerald-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-600"
+                className="inline-flex w-full items-center justify-center rounded-full bg-gold-deep px-5 py-3 text-sm font-medium text-white transition hover:bg-ink"
               >
                 Save workout log
               </button>

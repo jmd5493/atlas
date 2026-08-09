@@ -18,6 +18,7 @@ export async function createClient(formData: FormData) {
   const lastName = String(formData.get("lastName") ?? "").trim();
   const emailInput = String(formData.get("email") ?? "").trim();
   const notesInput = String(formData.get("notes") ?? "").trim();
+  const selfTrack = formData.get("selfTrack") === "on";
 
   if (!firstName || !lastName) {
     redirect("/dashboard/clients?status=missing-fields");
@@ -28,12 +29,34 @@ export async function createClient(formData: FormData) {
   const notes = notesInput.length > 0 ? notesInput : null;
 
   const supabase = await createSupabaseServerClient();
+
+  // A trainer can track their own workouts by linking exactly one client
+  // record to their own auth user (clients_auth_user_id_unique_idx enforces
+  // "exactly one" at the DB level). This only ever happens through a brand
+  // new insert scoped to this checkbox — never a link action on an existing
+  // row — so there's no path where a trainer could accidentally attach
+  // themselves to a real client's already-existing record.
+  if (selfTrack) {
+    const { data: existingSelfLink } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("trainer_id", currentUser.user.id)
+      .eq("auth_user_id", currentUser.user.id)
+      .maybeSingle<{ id: string }>();
+
+    if (existingSelfLink) {
+      redirect("/dashboard/clients?status=already-self-linked");
+      return;
+    }
+  }
+
   const { error } = await supabase.from("clients").insert({
     trainer_id: currentUser.user.id,
     first_name: firstName,
     last_name: lastName,
     email,
     notes,
+    auth_user_id: selfTrack ? currentUser.user.id : null,
   });
 
   if (error) {

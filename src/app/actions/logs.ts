@@ -35,7 +35,11 @@ export async function createExerciseLog(formData: FormData) {
   const currentUser = await getCurrentUser();
   const redirectPath = resolveRedirectPath(formData);
 
-  if (!currentUser || currentUser.role !== "client") {
+  // Trainers may also submit logs, but only ever against their own
+  // self-tracking client record — the linkedClient lookup below (scoped to
+  // auth_user_id = the caller's own id) is what actually enforces that, the
+  // same as it does for a client account.
+  if (!currentUser || (currentUser.role !== "client" && currentUser.role !== "trainer")) {
     redirectWithStatus(redirectPath, "forbidden");
     return;
   }
