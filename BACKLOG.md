@@ -113,17 +113,26 @@ Supabase's shared mailer rate limit.
   merge — the test-suite-orphaned-by-an-early-merge incident earlier in this
   build is a direct symptom of that.
 
-### Priority 1 — Get the fast checks into CI
-GitHub Actions is the obvious choice (repo's already on GitHub, zero new
-accounts needed). Fast, no-external-dependency checks first:
-- `npm ci`
-- `npx tsc --noEmit`
-- `npm run lint`
-- `npm run test:unit`
-- `npm run build` (a production build catches real errors unit tests won't)
+### Priority 1 — Get the fast checks into CI — **done**
+`.github/workflows/ci.yml`: `tsc --noEmit` → `eslint` → `vitest` unit tests →
+`next build`, on every PR into `main` and on push to `main`. The build step
+uses placeholder `NEXT_PUBLIC_SUPABASE_*` values (verified locally that the
+build never actually calls out to Supabase — it just needs the env vars to
+be present and valid-shaped) rather than real credentials, so no secrets are
+needed for this workflow at all. Verified passing on a real PR (#7), not
+just locally.
 
-Turn on branch protection requiring this workflow green before merge to
-`main`. This alone would have caught the orphaned-commit issue.
+**Branch-protection enforcement (blocking the merge button on a red check)
+turned out to need either a public repo or GitHub's Team plan ($4/mo/user)**
+— GitHub Free doesn't offer repository rules on private repos at all, this
+isn't a config gap, it's a plan-tier limit. Decided against paying or going
+public for this: PRs are already being reviewed manually before every merge
+(the actual practice this whole build), so enforced blocking wouldn't change
+real behavior — it would just formalize something already happening. CI
+still shows a clear pass/fail on every PR page either way; that status is
+what actually gets checked before merging. Revisit only if manual review
+discipline ever actually slips — trivial to turn on later (Team plan or
+public repo, no rework needed), not a decision that forecloses anything.
 
 ### Priority 2 — Decide the e2e-in-CI strategy (needs a decision, not just implementation)
 The e2e suite currently runs against the same live dev Supabase project used
@@ -138,17 +147,32 @@ questions worth deciding deliberately rather than defaulting into:
   on merge to `main` / on a schedule (faster PRs, catches regressions later).
 - Where e2e credentials live as CI secrets, and who's allowed to see them.
 
-### Priority 3 — CD: build and ship an image
+### Priority 3 — Build and push the image (still CI, not CD)
+Worth being precise about the CI/CD boundary here, since it's easy to blur:
+building and pushing an image is producing a validated artifact, same
+category of work as lint/test/build-check — it's CD only once something
+*deploys* it. In this GitOps setup, "deploy" is entirely ArgoCD's job, not a
+pipeline step (see Priority 4 below).
 - Add a `Dockerfile` (multi-stage, Next.js `output: "standalone"` for a lean
   runtime image — not configured yet, `next.config.ts` doesn't set it).
-- On merge to `main`: build the image, push to a registry. GHCR is the
-  simplest choice (free, already authenticated via the GitHub repo).
-- Tag images by git SHA at minimum.
-- **This is where CI hands off to ArgoCD** — per `AGENTS.md`, ArgoCD watches
-  a manifests repo/path and syncs from there; nothing in CI should ever
-  `kubectl apply` directly against a cluster.
+- Trigger: on merge to `main` only, not every PR (unlike Priority 1's checks).
+- Build the image, tag by git SHA at minimum, push to GHCR (free, already
+  authenticated via the GitHub repo — simplest choice).
+- Can live in the same `ci.yml` with a merge-only trigger, or a separate
+  workflow file — organizational choice, not a meaningful distinction.
 
-### Priority 4 — Fix the migration story
+### Priority 4 — CD: hand the new image tag to ArgoCD
+This is the part that's actually "CD," and it's thinner than it might sound:
+**ArgoCD isn't a pipeline step** — it's a persistent controller already
+running in the cluster, continuously watching a manifests repo/path and
+reconciling the cluster to match whatever it finds there. The pipeline's
+only job is a Git commit updating the image tag in whatever manifest ArgoCD
+watches; ArgoCD does the actual deploying on its own, on a loop. Nothing in
+CI or this step should ever `kubectl apply`/`helm upgrade` directly against
+the cluster — per `AGENTS.md`, the only path in is a Git change ArgoCD picks
+up on its own.
+
+### Priority 5 — Fix the migration story
 Every migration this whole build (001 through 010) was applied by hand: a
 personal access token pasted into a chat, `curl`'d against the Supabase
 Management API, one migration at a time, checked by hand. That worked, but
@@ -163,79 +187,137 @@ properly scoped credential, not an ad hoc PAT.
 
 Everything here should be read against `AGENTS.md`'s Deployment path, Cost
 awareness, and Standards sections directly — this is a task breakdown of
-that plan, not a separate plan.
+that plan, not a separate plan. **Two decisions below deliberately deviate
+from `AGENTS.md`'s original path** (AWS-first instead of Hetzner-first;
+self-hosting Postgres/auth instead of managed Supabase) — noted explicitly
+so that's a conscious choice on record, not a drift nobody decided.
 
-### Priority 0 — A decision to make before any of this starts
-**Right now there is exactly one Supabase project, and it has been used for
-every round of manual and automated testing this entire build.** `AGENTS.md`
-already calls for separate config per environment (local / staging-Hetzner /
-prod-AWS) — worth deciding explicitly whether that also means separate
-Supabase projects per environment (clean separation, a second free-tier
-project costs nothing) or one project with careful data hygiene. Given this
-app will eventually hold a real trainer's real clients' data, sharing the
-project that once had `atlas.trigger-security-test@example.com` rows in it
-with whatever becomes production is worth a deliberate no, not an accident.
+### Decided: AWS-first, skipping the Hetzner staging phase
+`AGENTS.md`'s original plan was Hetzner POC first, AWS later. Decided instead
+to go straight to AWS. Worth recording the actual tradeoff that was weighed:
+**for equivalent compute, Hetzner is meaningfully cheaper than AWS on-demand**
+(roughly $5–13/mo vs. $25–60/mo for similar specs — see below). AWS was
+chosen anyway, deliberately, for the Terraform/AWS experience specifically —
+not because it's the cheaper option, because it isn't. If cost pressure ever
+becomes the deciding factor, Hetzner is the cheaper fallback with the same
+manifest pattern (K3s + ArgoCD + standard K8s primitives), not a redesign.
 
-### Priority 1 — Containerize
-- `Dockerfile` for the Next.js app (see CI Priority 3 above — same
-  artifact, different concern: this is "does it run in a container at all,"
-  CI is "does a container get built and pushed automatically").
-- Confirm the app is genuinely stateless as `AGENTS.md` assumes — it should
-  be, Supabase is the only persistence, but worth a real check before it's
-  running on more than one replica.
+**Terraform owns the AWS layer**: VPC, EC2 instance, security group, Elastic
+IP. State in an S3 backend + DynamoDB lock table from the start, not local
+state (pennies/month, avoids the "state file only exists on someone's
+laptop" trap). **ArgoCD owns everything inside the cluster** — app
+Deployment/Service/Ingress, self-hosted Postgres/auth manifests. These are
+complementary layers, not competing tools — per `AGENTS.md`, nothing in
+either should ever mean a manual `kubectl apply` against the running
+cluster.
 
-### Priority 2 — Hetzner POC / staging
-Per `AGENTS.md`: single-node K3s on a Hetzner VPS, ArgoCD for GitOps.
-- Provision the VPS (Hetzner's own cost model applies here, not AWS's —
-  still worth sizing deliberately rather than defaulting to the biggest
-  option).
-- Install K3s (single node — this is the learning environment, not where
-  HA matters).
-- Install ArgoCD; stand up the GitOps repo/path it watches.
-- Standard K8s primitives only — Deployment, Service, Ingress — written so
-  nothing is Hetzner-specific and the same manifests work unchanged on AWS
-  later. This is an explicit `AGENTS.md` requirement, not a nice-to-have.
-- TLS: cert-manager + Let's Encrypt (standard, free, works the same on any
-  cloud).
-- DNS: a real domain pointed at the staging box.
-- Secrets: **plain K8s `Secret` manifests can't safely live in the Git repo
-  ArgoCD reads from** — needs a GitOps-safe pattern (sealed-secrets or an
-  external-secrets operator pulling from somewhere else) decided before the
-  first real secret goes in, not after.
+### Decided: self-host Postgres + auth, not managed Supabase Cloud
+Rationale: if an EC2 instance is being paid for regardless (to run the app),
+running Postgres + GoTrue (auth) + PostgREST on that same box costs nothing
+extra — versus paying for that instance *and* Supabase Pro ($25/mo) on top
+of it once the free tier's pause-after-a-week-of-inactivity policy becomes
+unacceptable (it will, for anything real users depend on). Also directly
+serves the stated goal in `AGENTS.md` — this is real Postgres-ops learning,
+not a corner case.
 
-### Priority 3 — Production on AWS
-Per `AGENTS.md`: EC2 self-managed K3s, deliberately *not* EKS yet. Same
-manifest pattern as Hetzner, different substrate. Everything below is a
-direct application of `AGENTS.md`'s cost-awareness section — restated here
-because it's the part most likely to get "helpfully" over-built by default
-if it's not kept explicit:
-- Single right-sized EC2 instance in a public subnet with a security group
-  is the default, not a starting point to upgrade from.
+- **Self-host only what's actually used**: Postgres + GoTrue + PostgREST.
+  This app uses zero Realtime and zero Storage today — skip both. Not a
+  one-way door: add Storage later exactly when a feature (e.g. client
+  progress photos) actually needs it, same pattern, just another manifest.
+- **Same client code, no rewrite** — `@supabase/supabase-js`, `.auth.*`
+  calls, RLS policies with `auth.uid()`, all of it keeps working unchanged.
+  Only `NEXT_PUBLIC_SUPABASE_URL` changes, from Supabase's cloud to the
+  self-hosted instance's own address.
+- **This is where risk gets concentrated, be honest about it**: app, DB, and
+  auth all live on one box now. If it has a problem, everything is down at
+  once — managed Supabase at least isolated that. Accepted deliberately
+  given the learning goal, not an oversight.
+- **Backups to S3, non-negotiable, set up alongside the initial deploy, not
+  after**: `pgBackRest` or `WAL-G` streaming to S3 for real point-in-time
+  recovery (a cron'd `pg_dump` to S3 is an acceptable v1 if PITR tooling
+  takes longer to get right). This app will eventually hold a real trainer's
+  real clients' data — "add backups later" isn't a posture to ship with,
+  and backups living only on the same instance as the data protect against
+  nothing (disk dies, backup dies with it).
+- **SMTP provider still needed regardless of hosting** — self-hosted GoTrue
+  still needs to send confirmation/reset emails. This doesn't disappear;
+  see the SMTP item below.
+
+### Sizing the EC2 instance
+Worth being honest rather than optimistic: **ArgoCD is the piece most likely
+to blow the budget on a small box** — its default install assumes it might
+manage many clusters at scale (server, repo-server, application-controller,
+Redis, dex, notifications-controller). Use ArgoCD's **"core" install
+profile** (single-cluster, no HA) instead of the default manifests.
+
+Rough tally for everything on one box:
+
+| Component | ~RAM |
+|---|---|
+| OS + K3s control plane | ~1 GB |
+| Traefik (ships with K3s, no separate install) | ~75 MB |
+| cert-manager | ~150 MB |
+| ArgoCD (core profile) | ~750 MB–1 GB |
+| Next.js app | ~256–512 MB |
+| Postgres | ~512 MB–1 GB |
+| GoTrue + PostgREST | ~250–500 MB |
+| sealed-secrets / external-secrets controller | ~75 MB |
+| headroom (not optional) | ~1 GB |
+
+Realistically **~4.5–5.5 GB minimum before counting anything else** (a
+monitoring agent, additional services). **Target `t4g.large` (2 vCPU / 8 GB,
+ARM/Graviton) as the starting size, not `t4g.medium` (4 GB)** — 4 GB would
+run at the edge with zero slack the moment anything else gets added, and
+memory pressure on K8s means the OOM killer starts evicting pods, not a
+graceful slowdown. Graviton (`t4g.*`) over x86 (`t3.*`) for the same specs
+at meaningfully lower cost — nothing in this stack (Next.js, Postgres,
+Go-based GoTrue/PostgREST) has an x86-only dependency.
+
+**Scaling up later is a Terraform variable change, not a rebuild**: change
+`instance_type`, `terraform apply` — mechanically stop → AWS swaps hardware
+→ start, a few minutes of downtime. The EBS root volume survives the
+stop/start, and with an Elastic IP (free while attached to a running
+instance — worth having from day one) the public IP doesn't change either.
+Storage (EBS) can grow live, without even stopping the instance.
+
+Per `AGENTS.md`'s cost-awareness section — restated here since it's the part
+most likely to get "helpfully" over-built by default if it's not kept
+explicit:
 - No NAT Gateway, no managed control plane (EKS), no ALB/NLB, no multi-AZ —
   none of these as defaults, ever, without an explicit ask.
-- Check current EC2 pricing before sizing anything (prices drift; don't
-  trust a memorized number).
-- Any new billable AWS resource gets flagged and confirmed *before* it's
+- Check current EC2 pricing before committing to a size (prices drift).
+- Any new billable AWS resource flagged and confirmed *before* it's
   provisioned, not folded into a larger change.
-- Billing alarms as soon as this phase starts — cost-consciousness in
-  practice, not just in the plan.
+- Billing alarms as soon as this phase starts.
 
-### Priority 4 — Observability
-README's original stated intent included "monitoring" as a goal. Nothing
-exists yet. Keep it proportional to a single-node K3s box — this almost
-certainly does not need a full Prometheus+Grafana stack on day one; start
-with basic logs/metrics and grow only if the app's actual failure modes
-call for more.
+### Dev environment
+Not a second deployed environment — that doubles infra surface (and cost,
+if it means a second EC2 instance) for a one-person project. Local dev stays
+exactly as-is (`npm run dev` against a Supabase project on the free tier).
+"Dev vs. prod" is primarily **which Supabase/Postgres instance is being
+pointed at**, not a second Kubernetes environment. If a real staging
+environment is ever needed later, that's a second namespace on the same
+box, not a second box.
 
-### Priority 5 — External-service infra (Supabase-adjacent, still real infra work)
-- **SMTP provider for Supabase auth email** — signup confirmation and
-  password reset currently run on Supabase's default mailer, which has a
-  low shared rate limit (hit repeatedly during this build's own testing).
-  Explicitly discussed and deferred this session — revisit before real
-  client signups depend on it. Resend's free tier was the leading candidate
-  when this came up (generous limits, $0 for this app's likely volume,
-  simple Supabase SMTP integration) but that's a suggestion, not a decision.
-- **Confirm Supabase's backup/retention plan tier** — it's a managed
-  Postgres, so backups are Supabase's responsibility, but "what's actually
-  covered" is worth confirming rather than assuming once real client data
-  is on it.
+### Observability
+Keep this proportional to the box it's running on — the sizing table above
+already assumes zero budget for a full observability stack. **A full
+Prometheus + Grafana + Loki stack does not fit** (Prometheus alone commonly
+wants 1–2 GB+ RAM even for small setups, Loki adds several hundred MB to a
+GB more, before Grafana or any exporters). Options, roughly cheapest-first:
+K3s's built-in `metrics-server` (already there, near-zero extra cost, covers
+basic CPU/RAM) plus `kubectl logs`/`journalctl` for now; a single lightweight
+binary (e.g. Netdata, or a single-node Victoria Metrics / Grafana Alloy
+setup) if more is needed later; the full Prometheus+Grafana+Loki stack only
+if this box ever gets resized specifically to afford it. Defer past a
+minimal starting point until the app's actual failure modes call for more —
+don't build monitoring for problems that haven't happened yet.
+
+### External-service infra (Supabase-adjacent, still real infra work)
+- **SMTP provider for auth email** — signup confirmation and password reset
+  need real email delivery either way (self-hosted GoTrue or managed
+  Supabase both need this). Explicitly discussed and deferred this session —
+  revisit before real client signups depend on it. Resend's free tier was
+  the leading candidate when this came up (generous limits, $0 for this
+  app's likely volume, simple SMTP integration) but that's a suggestion, not
+  a decision.
