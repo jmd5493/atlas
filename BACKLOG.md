@@ -107,20 +107,20 @@ deliberately doesn't exercise a real `signUp()` call to avoid burning
 Supabase's shared mailer rate limit.
 
 ### What doesn't exist yet
-- **No CI pipeline at all.** Every check this whole build (`tsc`, `eslint`,
-  `vitest`, `playwright`) has been run by hand, locally. Nothing gates a PR.
-- **No branch protection.** Nothing requires any check to pass before a
-  merge — the test-suite-orphaned-by-an-early-merge incident earlier in this
-  build is a direct symptom of that.
+- **e2e not in CI** — still run by hand, locally, before opening a PR (see
+  Priority 2 below, an open decision, not yet implemented).
+- **No branch protection** — deliberately, see Priority 1's note below.
+- **No automated migration pipeline** — see Priority 5.
+- **No CD** — nothing deploys the image `image.yml` pushes; see Priority 4.
 
 ### Priority 1 — Get the fast checks into CI — **done**
 `.github/workflows/ci.yml`: `tsc --noEmit` → `eslint` → `vitest` unit tests →
-`next build`, on every PR into `main` and on push to `main`. The build step
-uses placeholder `NEXT_PUBLIC_SUPABASE_*` values (verified locally that the
-build never actually calls out to Supabase — it just needs the env vars to
-be present and valid-shaped) rather than real credentials, so no secrets are
-needed for this workflow at all. Verified passing on a real PR (#7), not
-just locally.
+`next build` → a PR-only Docker build check, on every PR into `main` and on
+push to `main`. No Supabase env vars needed at all — the build never calls
+out to Supabase, and since Priority 3's switch to runtime-injected config,
+nothing during `next build` reads Supabase config either, so there was never
+even a placeholder to fake. No secrets needed for this workflow at all.
+Verified passing on real PRs (#7, #8), not just locally.
 
 **Branch-protection enforcement (blocking the merge button on a red check)
 turned out to need either a public repo or GitHub's Team plan ($4/mo/user)**
