@@ -15,8 +15,10 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Server-side console for now — a real error-tracking service (Sentry
-    // or similar) is a reasonable follow-up once this is live, not before.
+    // Client-side console for now — this is a client component and this
+    // effect runs in the browser, not on the server. A real error-tracking
+    // service (Sentry or similar) is a reasonable follow-up once this is
+    // live, not before.
     console.error(error);
   }, [error]);
 

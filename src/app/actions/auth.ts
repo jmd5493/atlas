@@ -118,16 +118,23 @@ export async function signUp(
     },
   });
 
+  // Same message for "brand new signup" and "this email already has an
+  // account" on purpose, in every branch below — a distinct message for
+  // the duplicate case would let signup itself be used to enumerate which
+  // emails are already registered, the exact thing Supabase's own
+  // anti-enumeration response (the empty-identities check further down)
+  // is designed to prevent. Same reasoning as requestPasswordReset()
+  // below; this used to special-case the duplicate branch with a
+  // distinguishable "account already exists" message, which defeated that
+  // protection rather than respecting it.
+  const genericSignupMessage = `Check ${email} for a confirmation link. If you already have an account, sign in instead.`;
+
   if (error) {
-    // Older/some Supabase configs return an explicit error for a
+    // Older/some Supabase configs return an explicit error for an
     // already-registered email; match loosely rather than on exact text,
     // which Supabase doesn't guarantee stays stable across versions.
     if (/already registered|already exists/i.test(error.message)) {
-      return {
-        message:
-          "An account already exists for that email. Try signing in instead.",
-        tone: "error",
-      };
+      return { message: genericSignupMessage, tone: "info" };
     }
 
     return { message: error.message, tone: "error" };
@@ -137,26 +144,17 @@ export async function signUp(
   // confirmed user, Supabase deliberately returns success with no error —
   // a fake user object with an empty identities array — instead of an
   // error, specifically to avoid leaking which emails are registered via
-  // signup's response. Surface that case clearly rather than showing the
-  // generic "check your email" message, which would otherwise be actively
-  // misleading (no new account was created, and the real owner likely
-  // gets no email either).
+  // signup's response. Match that same non-committal message here, not a
+  // distinguishable one.
   if (data.user && data.user.identities && data.user.identities.length === 0) {
-    return {
-      message:
-        "An account already exists for that email. Try signing in instead.",
-      tone: "error",
-    };
+    return { message: genericSignupMessage, tone: "info" };
   }
 
   // Supabase's project auth settings decide whether email confirmation is
   // required. When it is, signUp() succeeds but returns no session yet —
   // handle both cases rather than assuming one.
   if (!data.session) {
-    return {
-      message: `Account created. Check ${email} for a confirmation link before signing in.`,
-      tone: "info",
-    };
+    return { message: genericSignupMessage, tone: "info" };
   }
 
   redirect("/dashboard");

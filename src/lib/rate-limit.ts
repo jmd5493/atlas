@@ -10,6 +10,16 @@
 // hosting choice, or Redis) if/when this app is ever horizontally scaled.
 const requestLog = new Map<string, number[]>();
 
+// Bounds total memory regardless of how many distinct keys get submitted —
+// without this, an attacker cycling through many unique emails/keys grows
+// the Map forever, since entries are only pruned *within* a key when that
+// same key is checked again, never removed just for going stale. Map
+// preserves insertion order, so evicting the oldest key on overflow is a
+// cheap FIFO, not a true LRU — good enough for this app's actual threat
+// model (abuse protection on a low-traffic app, not defense against a
+// serious distributed attack).
+const MAX_TRACKED_KEYS = 10_000;
+
 /**
  * Returns true if `key` is allowed another request right now, false if it's
  * currently rate-limited. Records the attempt either way isn't quite right —
@@ -32,6 +42,14 @@ export function checkRateLimit(
   }
 
   recent.push(now);
+
+  if (requestLog.size >= MAX_TRACKED_KEYS && !requestLog.has(key)) {
+    const oldestKey = requestLog.keys().next().value;
+    if (oldestKey !== undefined) {
+      requestLog.delete(oldestKey);
+    }
+  }
+
   requestLog.set(key, recent);
   return true;
 }

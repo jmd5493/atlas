@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { getCurrentUser } from "@/lib/auth/session";
 
@@ -5,7 +7,7 @@ export default async function AccountPage() {
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
-    return null;
+    redirect("/login");
   }
 
   return (
