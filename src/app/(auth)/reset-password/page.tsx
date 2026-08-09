@@ -5,6 +5,14 @@ import { hasSupabaseConfig } from "@/lib/env";
 // this page's whole job is to consume a recovery link and establish a fresh
 // session client-side, which has to run regardless of whatever session
 // cookie is already present when the page is first requested.
+//
+// Forced dynamic: this is otherwise the one page with no dynamic API call
+// (login/signup/forgot-password get this for free via getCurrentSession()'s
+// cookies() read), so without this Next.js would statically prerender it at
+// build time — freezing hasSupabaseConfig()'s result into the build instead
+// of reading the container's actual env at request time.
+export const dynamic = "force-dynamic";
+
 export default function ResetPasswordPage() {
   const isConfigured = hasSupabaseConfig();
 

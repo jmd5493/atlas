@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -15,37 +16,63 @@ export function ResetPasswordForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [tone, setTone] = useState<"error" | "info">("error");
   const [pending, setPending] = useState(false);
-  const supabaseRef = useRef(createSupabaseBrowserClient());
+  // Client creation is now async (it fetches runtime config from
+  // /api/public-env — see src/lib/supabase/client.ts), so it can't be
+  // created inline via useRef the way a sync call could. Set up inside the
+  // effect below instead; handleSubmit relies on linkStatus being "ready"
+  // (only reachable after this resolves) before this ref is read.
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
   useEffect(() => {
-    const supabase = supabaseRef.current;
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
 
-    // The recovery link's token/code lives in the URL. supabase-js exchanges
-    // it for a session automatically on client init (detectSessionInUrl) and
-    // fires PASSWORD_RECOVERY once that's done — this has to happen in the
-    // browser client, a server component never sees the URL fragment/code
-    // exchange. getSession() covers the case where the exchange already
-    // finished before this effect subscribed.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setLinkStatus("ready");
-      }
-    });
+    createSupabaseBrowserClient()
+      .then((supabase) => {
+        if (cancelled) return;
+        supabaseRef.current = supabase;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setLinkStatus("ready");
-      }
-    });
+        // The recovery link's token/code lives in the URL. supabase-js
+        // exchanges it for a session automatically on client init
+        // (detectSessionInUrl) and fires PASSWORD_RECOVERY once that's
+        // done — this has to happen in the browser client, a server
+        // component never sees the URL fragment/code exchange.
+        // getSession() covers the case where the exchange already
+        // finished before this effect subscribed.
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (cancelled) return;
+          if (session) {
+            setLinkStatus("ready");
+          }
+        });
+
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event) => {
+          if (cancelled) return;
+          if (event === "PASSWORD_RECOVERY") {
+            setLinkStatus("ready");
+          }
+        });
+
+        unsubscribe = () => subscription.unsubscribe();
+      })
+      .catch(() => {
+        // Config fetch failed (e.g. /api/public-env down or 503) — treat
+        // the same as an unusable link rather than leaving the page stuck
+        // on "Checking your reset link…" forever.
+        if (!cancelled) {
+          setLinkStatus("invalid");
+        }
+      });
 
     const timeout = setTimeout(() => {
       setLinkStatus((current) => (current === "checking" ? "invalid" : current));
     }, 4000);
 
     return () => {
-      subscription.unsubscribe();
+      cancelled = true;
+      unsubscribe?.();
       clearTimeout(timeout);
     };
   }, []);
@@ -66,8 +93,18 @@ export function ResetPasswordForm() {
       return;
     }
 
+    const supabase = supabaseRef.current;
+    if (!supabase) {
+      // Shouldn't happen — the form only renders once linkStatus is
+      // "ready", which only happens after this ref is set — but keep the
+      // UI honest if it somehow does.
+      setTone("error");
+      setMessage("Still loading your session, try again in a moment.");
+      return;
+    }
+
     setPending(true);
-    const { error } = await supabaseRef.current.auth.updateUser({ password });
+    const { error } = await supabase.auth.updateUser({ password });
     setPending(false);
 
     if (error) {

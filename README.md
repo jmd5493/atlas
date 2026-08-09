@@ -102,8 +102,12 @@ cp .env.example .env.local
 
 Required variables:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+These are plain server env vars, not `NEXT_PUBLIC_*` — read live at runtime
+(dev server or container start), never baked into a build. The browser gets
+them via a fetch to `/api/public-env` (see `src/lib/env.ts` for why).
 
 ## First auth flow
 

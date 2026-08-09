@@ -46,7 +46,7 @@ export async function signIn(
   if (!hasSupabaseConfig()) {
     return {
       message:
-        "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local first.",
+        "Add SUPABASE_URL and SUPABASE_ANON_KEY to .env.local first.",
     };
   }
 
@@ -82,7 +82,7 @@ export async function signUp(
 
   if (!hasSupabaseConfig()) {
     return {
-      message: "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local first.",
+      message: "Add SUPABASE_URL and SUPABASE_ANON_KEY to .env.local first.",
       tone: "error",
     };
   }
@@ -131,7 +131,7 @@ export async function requestPasswordReset(
 
   if (!hasSupabaseConfig()) {
     return {
-      message: "Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local first.",
+      message: "Add SUPABASE_URL and SUPABASE_ANON_KEY to .env.local first.",
       tone: "error",
     };
   }

@@ -107,20 +107,20 @@ deliberately doesn't exercise a real `signUp()` call to avoid burning
 Supabase's shared mailer rate limit.
 
 ### What doesn't exist yet
-- **No CI pipeline at all.** Every check this whole build (`tsc`, `eslint`,
-  `vitest`, `playwright`) has been run by hand, locally. Nothing gates a PR.
-- **No branch protection.** Nothing requires any check to pass before a
-  merge — the test-suite-orphaned-by-an-early-merge incident earlier in this
-  build is a direct symptom of that.
+- **e2e not in CI** — still run by hand, locally, before opening a PR (see
+  Priority 2 below, an open decision, not yet implemented).
+- **No branch protection** — deliberately, see Priority 1's note below.
+- **No automated migration pipeline** — see Priority 5.
+- **No CD** — nothing deploys the image `image.yml` pushes; see Priority 4.
 
 ### Priority 1 — Get the fast checks into CI — **done**
 `.github/workflows/ci.yml`: `tsc --noEmit` → `eslint` → `vitest` unit tests →
-`next build`, on every PR into `main` and on push to `main`. The build step
-uses placeholder `NEXT_PUBLIC_SUPABASE_*` values (verified locally that the
-build never actually calls out to Supabase — it just needs the env vars to
-be present and valid-shaped) rather than real credentials, so no secrets are
-needed for this workflow at all. Verified passing on a real PR (#7), not
-just locally.
+`next build` → a PR-only Docker build check, on every PR into `main` and on
+push to `main`. No Supabase env vars needed at all — the build never calls
+out to Supabase, and since Priority 3's switch to runtime-injected config,
+nothing during `next build` reads Supabase config either, so there was never
+even a placeholder to fake. No secrets needed for this workflow at all.
+Verified passing on real PRs (#7, #8), not just locally.
 
 **Branch-protection enforcement (blocking the merge button on a red check)
 turned out to need either a public repo or GitHub's Team plan ($4/mo/user)**
@@ -171,20 +171,47 @@ pipeline step (see Priority 4 below).
   (e.g. delete SHA tags past the last N, keep `latest`) before this runs
   unattended for a while. Add when this is actually driving a live deploy,
   not before.
-- **Real caveat to resolve before deploying this image, not before pushing
-  it:** `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` are
-  inlined into the client JS bundle at `next build` time, not read at
+- **Build-time vs. runtime Supabase config — resolved, superseding the
+  build-time-baking call originally recorded here.** `NEXT_PUBLIC_*` vars
+  get inlined into the client JS bundle at `next build` time, not read at
   container runtime (Next.js docs, self-hosting guide, "Environment
-  Variables"). The image currently builds with placeholder values, same as
-  the existing CI build-check job. That means the "one image, promoted
-  through environments via env vars" pattern described in those docs does
-  **not** hold as-is for the public Supabase vars — switching
-  `NEXT_PUBLIC_SUPABASE_URL` (e.g. dev → prod, or Supabase Cloud →
-  self-hosted per the decision below) means rebuilding the image with real
-  `--build-arg` values, not just changing a deployed env var. Worth a
-  real decision when Priority 4/the self-hosted Postgres work lands —
-  either rebuild-per-target-env, or move Supabase URL resolution to
-  request-time instead of `NEXT_PUBLIC_*` if that's disruptive.
+  Variables"), which would have meant a rebuild per environment. Revisited
+  once Hetzner-stage came back up as a real (if still unscheduled)
+  possibility alongside AWS prod — two real environments made "one image,
+  reconfigured at deploy" worth the extra plumbing now rather than later.
+  Implemented:
+  - Renamed the vars to plain `SUPABASE_URL`/`SUPABASE_ANON_KEY` (no
+    `NEXT_PUBLIC_` prefix) — read live from `process.env` on the server,
+    never inlined into a build.
+  - Added `src/app/api/public-env/route.ts`, `dynamic = "force-dynamic"`:
+    the one bridge point that hands the container's live env vars to the
+    browser. The single client-side caller
+    (`src/lib/supabase/client.ts` → `src/components/auth/reset-password-form.tsx`)
+    fetches it instead of reading `process.env` directly.
+  - `src/app/(auth)/reset-password/page.tsx` forced dynamic too — it was
+    the one route with no other dynamic API call, so without this
+    Next.js would've statically prerendered it at build and frozen
+    `hasSupabaseConfig()`'s result regardless of runtime.
+  - Dockerfile/`ci.yml`: dropped the build-time `ARG`s and CI placeholder
+    env vars entirely — nothing reads Supabase config during `next
+    build` anymore.
+  - Verified locally: same built image, run twice with different
+    `SUPABASE_URL`/`SUPABASE_ANON_KEY` via `docker run -e`, served two
+    different configs from `/api/public-env` with no rebuild; a
+    no-env-vars run failed closed (`503` from the endpoint, login page
+    still rendered its "not configured" state rather than crashing).
+  - `image.yml` stays a single build — one image now really does work
+    for every environment, so the matrix-build path recorded earlier is
+    no longer needed at all, for Hetzner-stage or otherwise.
+
+  These vars were never a secrets concern in the first place, worth
+  repeating: the anon key is designed to be public (Supabase's security
+  model is RLS-enforced, not secrecy of this key — same value is already
+  visible in any browser's Network tab on the live site, with or without
+  Docker). The real secrets to keep out of this image whenever they show
+  up — `service_role` key, DB/SMTP credentials — go through K8s Secrets
+  at deploy time, never a Dockerfile `ARG`/`ENV` or this `/api/public-env`
+  pattern (that route only ever serves values already meant to be public).
 
 ### Priority 4 — CD: hand the new image tag to ArgoCD
 This is the part that's actually "CD," and it's thinner than it might sound:
@@ -232,7 +259,12 @@ manifest pattern (K3s + ArgoCD + standard K8s primitives), not a redesign.
 cheap Hetzner box as a pre-prod/staging tier that ArgoCD also deploys to
 before promoting to the AWS prod box. Same manifest pattern either way, so
 this is additive whenever it's wanted, not a redesign. Not being pursued now
-— AWS prod build-out comes first.
+— AWS prod build-out comes first. One thing this idea already prompted: the
+app image now reads its Supabase config from live container env vars, not
+build-time baking (Part 2 Priority 3) — specifically so a Hetzner-stage tier
+and AWS-prod could someday run the exact same image, reconfigured per
+environment, with no rebuild-per-target needed whenever this actually
+happens.
 
 **Terraform owns the AWS layer**: VPC, EC2 instance, security group, Elastic
 IP. State in an S3 backend + DynamoDB lock table from the start, not local
