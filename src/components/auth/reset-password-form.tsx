@@ -27,32 +27,44 @@ export function ResetPasswordForm() {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
 
-    createSupabaseBrowserClient().then((supabase) => {
-      if (cancelled) return;
-      supabaseRef.current = supabase;
+    createSupabaseBrowserClient()
+      .then((supabase) => {
+        if (cancelled) return;
+        supabaseRef.current = supabase;
 
-      // The recovery link's token/code lives in the URL. supabase-js
-      // exchanges it for a session automatically on client init
-      // (detectSessionInUrl) and fires PASSWORD_RECOVERY once that's done —
-      // this has to happen in the browser client, a server component never
-      // sees the URL fragment/code exchange. getSession() covers the case
-      // where the exchange already finished before this effect subscribed.
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setLinkStatus("ready");
+        // The recovery link's token/code lives in the URL. supabase-js
+        // exchanges it for a session automatically on client init
+        // (detectSessionInUrl) and fires PASSWORD_RECOVERY once that's
+        // done — this has to happen in the browser client, a server
+        // component never sees the URL fragment/code exchange.
+        // getSession() covers the case where the exchange already
+        // finished before this effect subscribed.
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (cancelled) return;
+          if (session) {
+            setLinkStatus("ready");
+          }
+        });
+
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event) => {
+          if (cancelled) return;
+          if (event === "PASSWORD_RECOVERY") {
+            setLinkStatus("ready");
+          }
+        });
+
+        unsubscribe = () => subscription.unsubscribe();
+      })
+      .catch(() => {
+        // Config fetch failed (e.g. /api/public-env down or 503) — treat
+        // the same as an unusable link rather than leaving the page stuck
+        // on "Checking your reset link…" forever.
+        if (!cancelled) {
+          setLinkStatus("invalid");
         }
       });
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event) => {
-        if (event === "PASSWORD_RECOVERY") {
-          setLinkStatus("ready");
-        }
-      });
-
-      unsubscribe = () => subscription.unsubscribe();
-    });
 
     const timeout = setTimeout(() => {
       setLinkStatus((current) => (current === "checking" ? "invalid" : current));

@@ -11,15 +11,24 @@ import { getSupabaseConfig, hasSupabaseConfig } from "@/lib/env";
 // never gets statically optimized/cached into a build-time snapshot.
 export const dynamic = "force-dynamic";
 
+// Belt-and-suspenders alongside `dynamic`: an explicit no-store header stops
+// a browser or intermediary proxy from caching this response across a
+// redeploy/env change, which `dynamic` alone doesn't guarantee for every
+// caller. Applied to both the success and error responses.
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
 export async function GET() {
   if (!hasSupabaseConfig()) {
     return NextResponse.json(
       { error: "Supabase is not configured on this server." },
-      { status: 503 },
+      { status: 503, headers: NO_STORE_HEADERS },
     );
   }
 
   const { url, anonKey } = getSupabaseConfig();
 
-  return NextResponse.json({ supabaseUrl: url, supabaseAnonKey: anonKey });
+  return NextResponse.json(
+    { supabaseUrl: url, supabaseAnonKey: anonKey },
+    { headers: NO_STORE_HEADERS },
+  );
 }
