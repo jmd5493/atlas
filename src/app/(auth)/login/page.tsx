@@ -18,22 +18,21 @@ export default async function LoginPage() {
         <div className="grid w-full gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <section className="space-y-5">
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
-              Atlas auth
+              Atlas
             </p>
             <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Sign in to the coaching workspace.
+              Sign in to your coaching workspace.
             </h1>
             <p className="max-w-xl text-base leading-7 text-stone-700 sm:text-lg">
-              This first slice keeps auth simple: Supabase email and password
-              sign-in, a protected dashboard route, and a lightweight role hook
-              for trainer and client access later.
+              Programs, workout logging, and progress — all in one place, for
+              trainer and client alike.
             </p>
             <div className="grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
               <div className="rounded-2xl border border-stone-200 bg-mist p-4">
-                Trainer and client roles are planned as the authorization gate.
+                Trainers manage clients, build programs, and review progress.
               </div>
               <div className="rounded-2xl border border-stone-200 bg-mist p-4">
-                Fill `.env.local` with your Supabase URL and anon key before signing in.
+                Clients log workouts and follow their plan.
               </div>
             </div>
           </section>
@@ -42,7 +41,7 @@ export default async function LoginPage() {
             <div className="mb-6 space-y-2">
               <h2 className="text-xl font-semibold text-ink">Login</h2>
               <p className="text-sm leading-6 text-stone-600">
-                Use a Supabase Auth user from your project.
+                Enter your email and password to continue.
               </p>
             </div>
             {isConfigured ? (

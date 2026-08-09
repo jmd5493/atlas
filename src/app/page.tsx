@@ -1,108 +1,49 @@
 export default function Home() {
   return (
-    <main className="min-h-screen bg-ink px-5 py-8 text-ink sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col rounded-[2rem] border border-white/10 bg-white/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-8 lg:p-10">
-        <header className="flex items-center justify-between gap-4 border-b border-stone-200 pb-6">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
-              Atlas
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-              Fitness coaching, kept simple.
-            </h1>
-          </div>
-          <div className="rounded-full border border-stone-200 bg-stone-50 px-4 py-2 text-sm text-stone-600">
-            MVP foundation
-          </div>
-        </header>
+    <main className="flex min-h-screen items-center justify-center bg-ink px-5 py-10 sm:px-6">
+      <div className="w-full max-w-4xl rounded-[2rem] border border-white/10 bg-white/95 p-8 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-10 lg:p-12">
+        <p className="text-sm font-medium uppercase tracking-[0.24em] text-gold-deep">
+          Atlas
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+          Fitness coaching, kept simple.
+        </h1>
+        <p className="mt-4 max-w-xl text-base leading-7 text-stone-700 sm:text-lg">
+          Your coaching workspace for programs, workout logging, and progress —
+          in one place for you and your clients.
+        </p>
 
-        <section className="grid flex-1 gap-8 py-8 lg:grid-cols-[1.4fr_0.9fr] lg:items-center">
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <p className="max-w-xl text-base leading-7 text-stone-700 sm:text-lg">
-                Atlas is being set up as a clean, mobile-first platform for one
-                trainer and their clients. The first release focuses on login,
-                client management, workout assignment, exercise logging, and
-                workout history.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <a
-                  className="inline-flex items-center justify-center rounded-full bg-gold-deep px-5 py-3 text-sm font-medium text-white transition hover:bg-ink"
-                  href="/login"
-                >
-                  Open login
-                </a>
-                <a
-                  className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
-                  href="/dashboard"
-                >
-                  View dashboard gate
-                </a>
-              </div>
-            </div>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <a
+            className="inline-flex items-center justify-center rounded-full bg-gold-deep px-6 py-3 text-sm font-medium text-white transition hover:bg-ink"
+            href="/login"
+          >
+            Sign in
+          </a>
+          <a
+            className="inline-flex items-center justify-center rounded-full border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
+            href="/signup"
+          >
+            Create a client account
+          </a>
+        </div>
 
-            <div id="mvp-scope" className="grid gap-4 sm:grid-cols-2">
-              {[
-                "Authentication and role-based access",
-                "Trainer-managed client records",
-                "Workout program creation and assignment",
-                "Client workout logging and history",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4 text-sm leading-6 text-stone-700"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <aside className="rounded-[1.75rem] bg-ink p-6 text-white shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-gold">
-              Build order
-            </p>
-            <ol className="mt-4 space-y-4 text-sm leading-6 text-stone-300">
-              <li>1. Authentication with trainer and client roles</li>
-              <li>2. Client management screens for the trainer</li>
-              <li>3. Workout program creation and assignment</li>
-              <li>4. Client logging and workout history</li>
-              <li>5. Trainer review of client workout logs</li>
-            </ol>
-          </aside>
-        </section>
-
-        <section
-          id="project-structure"
-          className="grid gap-4 border-t border-stone-200 pt-6 text-sm text-stone-700 lg:grid-cols-4"
-        >
-          <div className="rounded-2xl bg-stone-50 p-4">
-            <p className="font-semibold text-ink">src/app</p>
-            <p className="mt-2 leading-6">
-              App Router pages, layouts, and route groups for public, auth, and
-              dashboard flows.
+        <div className="mt-10 grid gap-4 border-t border-stone-200 pt-8 sm:grid-cols-2">
+          <div className="rounded-2xl bg-stone-50 p-4 text-sm leading-6 text-stone-700">
+            <p className="font-semibold text-ink">For clients</p>
+            <p className="mt-1">
+              Log workouts against your plan, track your history, and see
+              what&rsquo;s next.
             </p>
           </div>
-          <div className="rounded-2xl bg-stone-50 p-4">
-            <p className="font-semibold text-ink">src/components</p>
-            <p className="mt-2 leading-6">
-              Reusable UI shared across trainer and client screens.
+          <div className="rounded-2xl bg-stone-50 p-4 text-sm leading-6 text-stone-700">
+            <p className="font-semibold text-ink">For your trainer</p>
+            <p className="mt-1">
+              Build programs, review client progress, and keep everyone on
+              track.
             </p>
           </div>
-          <div className="rounded-2xl bg-stone-50 p-4">
-            <p className="font-semibold text-ink">src/lib</p>
-            <p className="mt-2 leading-6">
-              Shared utilities and server-side integrations, starting with
-              auth and Supabase helpers.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-stone-50 p-4">
-            <p className="font-semibold text-ink">src/types</p>
-            <p className="mt-2 leading-6">
-              Readable TypeScript types for users, clients, programs, and logs.
-            </p>
-          </div>
-        </section>
+        </div>
       </div>
     </main>
   );
