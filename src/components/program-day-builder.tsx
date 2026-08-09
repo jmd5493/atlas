@@ -252,7 +252,7 @@ export function ProgramDayBuilder({ fieldName, initialDays }: ProgramDayBuilderP
                           className="mt-1 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-gold-deep"
                         />
 
-                        <div className="mt-2 grid grid-cols-3 gap-2">
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                           <div className="space-y-1">
                             <label className="text-[10px] font-medium uppercase tracking-[0.08em] text-stone-500">
                               Sets
@@ -285,7 +285,7 @@ export function ProgramDayBuilder({ fieldName, initialDays }: ProgramDayBuilderP
                               className="w-full rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm text-ink outline-none transition focus:border-gold-deep"
                             />
                           </div>
-                          <div className="space-y-1">
+                          <div className="col-span-2 space-y-1 sm:col-span-1">
                             <label className="text-[10px] font-medium uppercase tracking-[0.08em] text-stone-500">
                               Weight (optional)
                             </label>
