@@ -122,14 +122,22 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <form action={signOut}>
-            <button
-              type="submit"
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/dashboard/account"
               className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
             >
-              Sign out
-            </button>
-          </form>
+              Account settings
+            </Link>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center rounded-full border border-stone-300 px-5 py-3 text-sm font-medium text-stone-700 transition hover:border-gold-deep hover:text-gold-deep"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2">

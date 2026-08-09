@@ -44,7 +44,7 @@ export default async function SignupPage() {
             <div className="mb-6 space-y-2">
               <h2 className="text-xl font-semibold text-ink">Sign up</h2>
               <p className="text-sm leading-6 text-stone-600">
-                Email and password only — you can add details later.
+                Name, email, and password to get started.
               </p>
             </div>
             {isConfigured ? (
