@@ -172,19 +172,34 @@ pipeline step (see Priority 4 below).
   unattended for a while. Add when this is actually driving a live deploy,
   not before.
 - **Real caveat to resolve before deploying this image, not before pushing
-  it:** `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` are
-  inlined into the client JS bundle at `next build` time, not read at
+  it, decided:** `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  are inlined into the client JS bundle at `next build` time, not read at
   container runtime (Next.js docs, self-hosting guide, "Environment
   Variables"). The image currently builds with placeholder values, same as
-  the existing CI build-check job. That means the "one image, promoted
-  through environments via env vars" pattern described in those docs does
-  **not** hold as-is for the public Supabase vars — switching
-  `NEXT_PUBLIC_SUPABASE_URL` (e.g. dev → prod, or Supabase Cloud →
-  self-hosted per the decision below) means rebuilding the image with real
-  `--build-arg` values, not just changing a deployed env var. Worth a
-  real decision when Priority 4/the self-hosted Postgres work lands —
-  either rebuild-per-target-env, or move Supabase URL resolution to
-  request-time instead of `NEXT_PUBLIC_*` if that's disruptive.
+  the existing CI build-check job.
+
+  Two real patterns exist: (A) bake at build time, rebuild per environment
+  when the target changes; (B) write a runtime-generated public config
+  (e.g. `/api/config` or `env.js` sourced from the container's actual env
+  vars at startup) so client code never reads `process.env.NEXT_PUBLIC_*`
+  directly, enabling one immutable image promoted unchanged across
+  environments. Decided on **(A)** for now: Atlas has exactly one real
+  deploy target today (local dev never touches this image at all — it's
+  `npm run dev` against a free Supabase project), so "build once, promote
+  everywhere" solves a problem that doesn't exist yet. Revisit (B) only if
+  a second real deployed environment shows up (the backlogged
+  Hetzner-stage-tier idea, or a dedicated CI Supabase project needing its
+  own image variant) — that's the trigger condition, not a default to
+  build toward speculatively.
+
+  Worth noting these vars were never a secrets concern in the first
+  place: the anon key is designed to be public (Supabase's security model
+  is RLS-enforced, not secrecy of this key — same value is already
+  visible in any browser's Network tab on the live site, with or without
+  Docker). The real secrets to keep out of this image whenever they show
+  up — `service_role` key, DB/SMTP credentials, anything without the
+  `NEXT_PUBLIC_` prefix — go through K8s Secrets at deploy time, never
+  `ARG`/`ENV` in the Dockerfile.
 
 ### Priority 4 — CD: hand the new image tag to ArgoCD
 This is the part that's actually "CD," and it's thinner than it might sound:
