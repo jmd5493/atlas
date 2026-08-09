@@ -147,17 +147,32 @@ questions worth deciding deliberately rather than defaulting into:
   on merge to `main` / on a schedule (faster PRs, catches regressions later).
 - Where e2e credentials live as CI secrets, and who's allowed to see them.
 
-### Priority 3 — CD: build and ship an image
+### Priority 3 — Build and push the image (still CI, not CD)
+Worth being precise about the CI/CD boundary here, since it's easy to blur:
+building and pushing an image is producing a validated artifact, same
+category of work as lint/test/build-check — it's CD only once something
+*deploys* it. In this GitOps setup, "deploy" is entirely ArgoCD's job, not a
+pipeline step (see Priority 4 below).
 - Add a `Dockerfile` (multi-stage, Next.js `output: "standalone"` for a lean
   runtime image — not configured yet, `next.config.ts` doesn't set it).
-- On merge to `main`: build the image, push to a registry. GHCR is the
-  simplest choice (free, already authenticated via the GitHub repo).
-- Tag images by git SHA at minimum.
-- **This is where CI hands off to ArgoCD** — per `AGENTS.md`, ArgoCD watches
-  a manifests repo/path and syncs from there; nothing in CI should ever
-  `kubectl apply` directly against a cluster.
+- Trigger: on merge to `main` only, not every PR (unlike Priority 1's checks).
+- Build the image, tag by git SHA at minimum, push to GHCR (free, already
+  authenticated via the GitHub repo — simplest choice).
+- Can live in the same `ci.yml` with a merge-only trigger, or a separate
+  workflow file — organizational choice, not a meaningful distinction.
 
-### Priority 4 — Fix the migration story
+### Priority 4 — CD: hand the new image tag to ArgoCD
+This is the part that's actually "CD," and it's thinner than it might sound:
+**ArgoCD isn't a pipeline step** — it's a persistent controller already
+running in the cluster, continuously watching a manifests repo/path and
+reconciling the cluster to match whatever it finds there. The pipeline's
+only job is a Git commit updating the image tag in whatever manifest ArgoCD
+watches; ArgoCD does the actual deploying on its own, on a loop. Nothing in
+CI or this step should ever `kubectl apply`/`helm upgrade` directly against
+the cluster — per `AGENTS.md`, the only path in is a Git change ArgoCD picks
+up on its own.
+
+### Priority 5 — Fix the migration story
 Every migration this whole build (001 through 010) was applied by hand: a
 personal access token pasted into a chat, `curl`'d against the Supabase
 Management API, one migration at a time, checked by hand. That worked, but
