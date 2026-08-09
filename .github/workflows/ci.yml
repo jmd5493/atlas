@@ -43,7 +43,9 @@ jobs:
         run: npm run build
 
       - name: Docker build check
-        # Build-only, no push — proves the Dockerfile itself still builds
-        # before merge. The real build-and-push-to-GHCR happens in
-        # image.yml on merge to main only, not on every PR.
+        # PR-only: proves the Dockerfile itself still builds before merge.
+        # Skipped on push-to-main so a merge doesn't rebuild the image here
+        # *and* again in image.yml — image.yml is the one that actually
+        # pushes, gated on this job passing (see its workflow_run trigger).
+        if: github.event_name == 'pull_request'
         run: docker build -t atlas:ci-check .
