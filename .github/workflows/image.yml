@@ -1,0 +1,55 @@
+name: Build and push image
+
+# Merge-to-main only — not every PR. This is still CI (producing a
+# validated artifact), not CD: nothing here deploys anything. ArgoCD is CD
+# — see AGENTS.md / BACKLOG.md Part 2 Priority 4 for the tag-promotion step
+# that will eventually follow this workflow.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Short SHA tag
+        id: version
+        run: echo "TAG=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Lowercase image name
+        # GHCR requires a lowercase repo path; github.repository preserves
+        # whatever case the repo was created with.
+        id: image
+        run: echo "NAME=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.NAME }}:${{ steps.version.outputs.TAG }}
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

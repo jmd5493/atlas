@@ -147,19 +147,44 @@ questions worth deciding deliberately rather than defaulting into:
   on merge to `main` / on a schedule (faster PRs, catches regressions later).
 - Where e2e credentials live as CI secrets, and who's allowed to see them.
 
-### Priority 3 — Build and push the image (still CI, not CD)
+### Priority 3 — Build and push the image (still CI, not CD) — **done**
 Worth being precise about the CI/CD boundary here, since it's easy to blur:
 building and pushing an image is producing a validated artifact, same
 category of work as lint/test/build-check — it's CD only once something
 *deploys* it. In this GitOps setup, "deploy" is entirely ArgoCD's job, not a
 pipeline step (see Priority 4 below).
-- Add a `Dockerfile` (multi-stage, Next.js `output: "standalone"` for a lean
-  runtime image — not configured yet, `next.config.ts` doesn't set it).
-- Trigger: on merge to `main` only, not every PR (unlike Priority 1's checks).
-- Build the image, tag by git SHA at minimum, push to GHCR (free, already
-  authenticated via the GitHub repo — simplest choice).
-- Can live in the same `ci.yml` with a merge-only trigger, or a separate
-  workflow file — organizational choice, not a meaningful distinction.
+- `Dockerfile` added (multi-stage, `node:22-alpine`, non-root runtime user,
+  built on Next.js `output: "standalone"` — now set in `next.config.ts`).
+- `ci.yml` gained a build-only "Docker build check" step on every PR (no
+  push) — catches a broken Dockerfile before merge, modeled on the same
+  pattern used in `project-scrum/scrum-pilot`'s CI.
+- New `image.yml` workflow: triggers on push to `main` only, builds and
+  pushes to GHCR (`ghcr.io/<owner>/<repo>`), tagged by short git SHA
+  (the tag GitOps promotion will reference) + a floating `latest`. Uses
+  `docker/build-push-action` with GitHub Actions layer caching
+  (`cache-from`/`cache-to: type=gha`) and the auto-issued `GITHUB_TOKEN` —
+  no Docker credential secret needed, unlike scrum-pilot's Docker Hub
+  username/password pair.
+- **Follow-up, not yet done:** GHCR's free tier on a *private* repo is
+  500MB storage / 1GB transfer per month (public repos are unlimited);
+  layers are deduped across tags but this is still worth a retention step
+  (e.g. delete SHA tags past the last N, keep `latest`) before this runs
+  unattended for a while. Add when this is actually driving a live deploy,
+  not before.
+- **Real caveat to resolve before deploying this image, not before pushing
+  it:** `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` are
+  inlined into the client JS bundle at `next build` time, not read at
+  container runtime (Next.js docs, self-hosting guide, "Environment
+  Variables"). The image currently builds with placeholder values, same as
+  the existing CI build-check job. That means the "one image, promoted
+  through environments via env vars" pattern described in those docs does
+  **not** hold as-is for the public Supabase vars — switching
+  `NEXT_PUBLIC_SUPABASE_URL` (e.g. dev → prod, or Supabase Cloud →
+  self-hosted per the decision below) means rebuilding the image with real
+  `--build-arg` values, not just changing a deployed env var. Worth a
+  real decision when Priority 4/the self-hosted Postgres work lands —
+  either rebuild-per-target-env, or move Supabase URL resolution to
+  request-time instead of `NEXT_PUBLIC_*` if that's disruptive.
 
 ### Priority 4 — CD: hand the new image tag to ArgoCD
 This is the part that's actually "CD," and it's thinner than it might sound:
@@ -201,6 +226,13 @@ chosen anyway, deliberately, for the Terraform/AWS experience specifically —
 not because it's the cheaper option, because it isn't. If cost pressure ever
 becomes the deciding factor, Hetzner is the cheaper fallback with the same
 manifest pattern (K3s + ArgoCD + standard K8s primitives), not a redesign.
+
+**Open follow-on idea (not scheduled):** revisit Hetzner as an actual second
+*stage* environment later — not instead of AWS, alongside it — e.g. a
+cheap Hetzner box as a pre-prod/staging tier that ArgoCD also deploys to
+before promoting to the AWS prod box. Same manifest pattern either way, so
+this is additive whenever it's wanted, not a redesign. Not being pursued now
+— AWS prod build-out comes first.
 
 **Terraform owns the AWS layer**: VPC, EC2 instance, security group, Elastic
 IP. State in an S3 backend + DynamoDB lock table from the start, not local

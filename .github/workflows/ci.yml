@@ -41,3 +41,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
         run: npm run build
+
+      - name: Docker build check
+        # Build-only, no push — proves the Dockerfile itself still builds
+        # before merge. The real build-and-push-to-GHCR happens in
+        # image.yml on merge to main only, not on every PR.
+        run: docker build -t atlas:ci-check .
