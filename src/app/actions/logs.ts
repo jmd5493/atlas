@@ -11,10 +11,12 @@ type LinkedClientRow = {
   trainer_id: string;
 };
 
+const KNOWN_REDIRECT_PATHS = ["/dashboard/workouts", "/dashboard/logs", "/dashboard/client-logs"];
+
 function resolveRedirectPath(formData: FormData) {
   const redirectInput = String(formData.get("redirectTo") ?? "").trim();
-  if (redirectInput === "/dashboard/workouts") {
-    return "/dashboard/workouts";
+  if (KNOWN_REDIRECT_PATHS.includes(redirectInput)) {
+    return redirectInput;
   }
 
   return "/dashboard/logs";
@@ -106,4 +108,47 @@ export async function createExerciseLog(formData: FormData) {
   revalidatePath("/dashboard/workouts");
   revalidatePath("/dashboard/client-logs");
   redirectWithStatus(redirectPath, "created");
+}
+
+export async function deleteExerciseLog(formData: FormData) {
+  const currentUser = await getCurrentUser();
+  const redirectPath = resolveRedirectPath(formData);
+
+  if (!currentUser || (currentUser.role !== "client" && currentUser.role !== "trainer")) {
+    redirectWithStatus(redirectPath, "forbidden");
+    return;
+  }
+
+  const logId = String(formData.get("logId") ?? "").trim();
+  if (!logId) {
+    redirectWithStatus(redirectPath, "delete-failed");
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  // No ownership check here beyond RLS: a trainer can delete any log under
+  // their own trainer_id, a client (or self-tracking trainer) only a log on
+  // their own linked clients row. Either policy failing to match just
+  // deletes zero rows rather than erroring, so check the count explicitly —
+  // a silent no-op would look identical to success otherwise.
+  const { error, count } = await supabase
+    .from("exercise_logs")
+    .delete({ count: "exact" })
+    .eq("id", logId);
+
+  if (error) {
+    redirectWithStatus(redirectPath, "delete-failed", error.code, error.message ?? "Unknown delete error");
+    return;
+  }
+
+  if (!count) {
+    redirectWithStatus(redirectPath, "delete-failed", "not-found", "Log entry not found or not yours to delete.");
+    return;
+  }
+
+  revalidatePath("/dashboard/logs");
+  revalidatePath("/dashboard/workouts");
+  revalidatePath("/dashboard/client-logs");
+  redirectWithStatus(redirectPath, "deleted");
 }

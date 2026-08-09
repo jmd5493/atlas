@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { createExerciseLog } from "@/app/actions/logs";
+import { createExerciseLog, deleteExerciseLog } from "@/app/actions/logs";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -42,6 +43,8 @@ function getStatusMessage(
   switch (status) {
     case "created":
       return { tone: "success", text: "Workout log saved." };
+    case "deleted":
+      return { tone: "success", text: "Log entry deleted." };
     case "missing-fields":
       return { tone: "error", text: "Fill in exercise name, sets, reps, and date." };
     case "invalid-numbers":
@@ -56,8 +59,13 @@ function getStatusMessage(
         tone: "error",
         text: `Log creation failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
       };
+    case "delete-failed":
+      return {
+        tone: "error",
+        text: `Delete failed (${errorCode ?? "unknown"}): ${errorMessage ?? "Unknown error"}`,
+      };
     case "forbidden":
-      return { tone: "error", text: "Only client accounts can add exercise logs." };
+      return { tone: "error", text: "Only client or trainer accounts can manage exercise logs." };
     default:
       return null;
   }
@@ -319,6 +327,16 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
                     {log.notes ? (
                       <p className="mt-2 text-sm leading-6 text-stone-700">{log.notes}</p>
                     ) : null}
+                    <form action={deleteExerciseLog} className="mt-2">
+                      <input type="hidden" name="logId" value={log.id} />
+                      <input type="hidden" name="redirectTo" value="/dashboard/logs" />
+                      <ConfirmSubmitButton
+                        confirmMessage={`Delete this ${log.exercise_name} entry from ${log.performed_on}? This can't be undone.`}
+                        className="text-xs font-medium text-red-600 hover:underline"
+                      >
+                        Delete entry
+                      </ConfirmSubmitButton>
+                    </form>
                   </article>
                 ))}
               </div>
