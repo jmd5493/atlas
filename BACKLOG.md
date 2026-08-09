@@ -113,18 +113,26 @@ Supabase's shared mailer rate limit.
   merge — the test-suite-orphaned-by-an-early-merge incident earlier in this
   build is a direct symptom of that.
 
-### Priority 1 — Get the fast checks into CI — **in progress**
+### Priority 1 — Get the fast checks into CI — **done**
 `.github/workflows/ci.yml`: `tsc --noEmit` → `eslint` → `vitest` unit tests →
 `next build`, on every PR into `main` and on push to `main`. The build step
 uses placeholder `NEXT_PUBLIC_SUPABASE_*` values (verified locally that the
 build never actually calls out to Supabase — it just needs the env vars to
 be present and valid-shaped) rather than real credentials, so no secrets are
-needed for this workflow at all.
+needed for this workflow at all. Verified passing on a real PR (#7), not
+just locally.
 
-Branch protection requiring this check green before merge to `main` is next
-— can't configure it until the workflow has run at least once so GitHub
-knows the check's name. This alone would have caught the orphaned-commit
-incident.
+**Branch-protection enforcement (blocking the merge button on a red check)
+turned out to need either a public repo or GitHub's Team plan ($4/mo/user)**
+— GitHub Free doesn't offer repository rules on private repos at all, this
+isn't a config gap, it's a plan-tier limit. Decided against paying or going
+public for this: PRs are already being reviewed manually before every merge
+(the actual practice this whole build), so enforced blocking wouldn't change
+real behavior — it would just formalize something already happening. CI
+still shows a clear pass/fail on every PR page either way; that status is
+what actually gets checked before merging. Revisit only if manual review
+discipline ever actually slips — trivial to turn on later (Team plan or
+public repo, no rework needed), not a decision that forecloses anything.
 
 ### Priority 2 — Decide the e2e-in-CI strategy (needs a decision, not just implementation)
 The e2e suite currently runs against the same live dev Supabase project used
