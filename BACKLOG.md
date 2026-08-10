@@ -133,6 +133,26 @@ Supabase's shared mailer rate limit.
 - **No automated migration pipeline** — see Priority 5.
 - **No CD** — nothing deploys the image `image.yml` pushes; see Priority 4.
 
+### Decided: three-tier branching model (`main` / `dev`, `stage` later)
+Was pure trunk-based — every `feature/*` branch forked from and PR'd
+straight back into `main`. Moving to: `feature/*` → PR → `dev` (integration
+branch, day-to-day work lands here) → periodically, `dev` → PR → `main`
+(release cut, always releasable, this is prod).
+
+`ci.yml` now triggers on PRs/pushes to `dev` too, or `dev` would have zero
+test coverage despite being where most work actually happens.
+**`image.yml` deliberately stays `main`-only** — a `dev` merge shouldn't
+push a new GHCR image with nothing to deploy it to, consistent with the
+Dev environment note in Part 3 (`dev` is still not a deployed environment).
+
+`stage`/`test` is the planned third tier, **not created yet** — no point
+adding a branch with no deploy destination before Part 3's stage namespace
+actually exists. Add it when that lands, sitting between `dev` and `main`.
+
+No branch-protection change from this — GitHub Free's private-repo
+limitation (above) applies identically to `dev`; manual review before
+merge stays the actual enforcement mechanism on both branches.
+
 ### Priority 1 — Get the fast checks into CI — **done**
 `.github/workflows/ci.yml`: `tsc --noEmit` → `eslint` → `vitest` unit tests →
 `next build` → a PR-only Docker build check, on every PR into `main` and on
