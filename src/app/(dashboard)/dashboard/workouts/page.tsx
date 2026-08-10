@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createExerciseLog } from "@/app/actions/logs";
-import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -323,12 +322,12 @@ export default async function WorkoutsPage({ searchParams }: WorkoutsPageProps) 
                                       />
                                     </div>
 
-                                    <ConfirmSubmitButton
-                                      confirmMessage={`Log ${exercise.exercise_name} with the sets, reps, and weight you entered above?`}
+                                    <button
+                                      type="submit"
                                       className="inline-flex w-fit items-center justify-center rounded-full bg-gold-deep px-4 py-2 text-xs font-medium text-white transition hover:bg-ink"
                                     >
                                       Log this exercise
-                                    </ConfirmSubmitButton>
+                                    </button>
                                   </form>
                                 </li>
                               ))}
