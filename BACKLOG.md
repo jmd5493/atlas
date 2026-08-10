@@ -112,6 +112,24 @@ stay fine.
   new program, or a client logs a workout. Nothing like this exists today;
   it's a real feature, not a small one — scope it properly if it gets picked
   up, don't bolt it on.
+- **3.6 CSV import for programs** — let a trainer import an
+  already-built program from a spreadsheet instead of re-entering it by
+  hand in the builder. Cheaper than it sounds: `createWorkoutProgram`/
+  `updateWorkoutProgramDays` already funnel through one shared, unit-tested
+  pipeline (`src/lib/programs/day-parsing.ts`) that takes a plain JSON
+  shape (day → workout blocks → exercises); a CSV importer is just a
+  second producer of that same shape, inheriting its existing validation
+  for free. Scoped version: fixed CSV column template (day number,
+  workout label, exercise name, sets, reps, weight, notes), parsed
+  client-side (`papaparse` — not currently a dependency; hand-rolled comma
+  splitting breaks on real spreadsheets), used to hydrate the existing
+  builder UI (`InitialWorkoutDay[]`) for the trainer to review before
+  saving, rather than inserting straight to the DB blind. **Explicitly not
+  in scope**: auto-importing a trainer's spreadsheet as-is, whatever
+  layout it happens to be in — that's an open-ended heuristics problem,
+  not a bounded feature. This means the trainer reformats into our
+  template once, not "upload anything and it works." No signal yet that
+  this is actually needed, same as 3.4.
 
 ---
 
