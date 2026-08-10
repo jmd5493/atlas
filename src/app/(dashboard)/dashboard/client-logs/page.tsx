@@ -15,6 +15,7 @@ type ClientLogRow = {
   notes: string | null;
   performed_on: string;
   created_at: string;
+  client_id: string;
   clients: {
     first_name: string;
     last_name: string;
@@ -65,13 +66,33 @@ export default async function ClientLogsPage({ searchParams }: ClientLogsPagePro
   const supabase = await createSupabaseServerClient();
   const { data: logs } = await supabase
     .from("exercise_logs")
-    .select("id, exercise_name, sets, reps, weight, notes, performed_on, created_at, clients(first_name,last_name), workout_programs(title)")
+    .select(
+      "id, exercise_name, sets, reps, weight, notes, performed_on, created_at, client_id, clients(first_name,last_name), workout_programs(title)",
+    )
     .eq("trainer_id", currentUser.user.id)
     .order("performed_on", { ascending: false })
     .order("created_at", { ascending: false })
     .returns<ClientLogRow[]>();
 
   const safeLogs = logs ?? [];
+
+  // Grouped by client for the trainer's review, not one flat feed of every
+  // client's entries interleaved by date. Logs within a client stay in the
+  // query's own date-descending order; clients are then sorted by name so
+  // the page reads the same way on every visit rather than shuffling by
+  // whoever logged most recently.
+  const groupedByClient = Array.from(
+    safeLogs.reduce((groups, log) => {
+      const group = groups.get(log.client_id) ?? [];
+      group.push(log);
+      groups.set(log.client_id, group);
+      return groups;
+    }, new Map<string, ClientLogRow[]>()),
+  ).sort(([, logsA], [, logsB]) => {
+    const nameA = `${logsA[0].clients?.first_name ?? ""} ${logsA[0].clients?.last_name ?? ""}`;
+    const nameB = `${logsB[0].clients?.first_name ?? ""} ${logsB[0].clients?.last_name ?? ""}`;
+    return nameA.localeCompare(nameB);
+  });
 
   return (
     <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
@@ -113,37 +134,44 @@ export default async function ClientLogsPage({ searchParams }: ClientLogsPagePro
             No client logs yet.
           </div>
         ) : (
-          <div className="mt-6 space-y-3">
-            {safeLogs.map((log) => (
-              <article key={log.id} className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-base font-semibold text-ink">{log.exercise_name}</p>
-                  <p className="text-xs text-stone-500">{log.performed_on}</p>
+          <div className="mt-6 space-y-8">
+            {groupedByClient.map(([clientId, clientLogs]) => (
+              <div key={clientId}>
+                <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">
+                  {clientLogs[0].clients?.first_name} {clientLogs[0].clients?.last_name}
+                  <span className="ml-2 font-normal text-stone-400">{clientLogs.length} entries</span>
+                </h2>
+                <div className="mt-3 space-y-3">
+                  {clientLogs.map((log) => (
+                    <article key={log.id} className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-base font-semibold text-ink">{log.exercise_name}</p>
+                        <p className="text-xs text-stone-500">{log.performed_on}</p>
+                      </div>
+                      <p className="mt-1 text-sm text-stone-600">
+                        {log.sets} sets × {log.reps} reps
+                        {log.weight !== null ? ` @ ${log.weight}` : ""}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        Program: {log.workout_programs?.title ?? "Unassigned"}
+                      </p>
+                      {log.notes ? (
+                        <p className="mt-2 text-sm leading-6 text-stone-700">{log.notes}</p>
+                      ) : null}
+                      <form action={deleteExerciseLog} className="mt-2">
+                        <input type="hidden" name="logId" value={log.id} />
+                        <input type="hidden" name="redirectTo" value="/dashboard/client-logs" />
+                        <ConfirmSubmitButton
+                          confirmMessage={`Delete ${log.clients?.first_name ?? "this client"}'s ${log.exercise_name} entry from ${log.performed_on}? This can't be undone.`}
+                          className="text-xs font-medium text-red-600 hover:underline"
+                        >
+                          Delete entry
+                        </ConfirmSubmitButton>
+                      </form>
+                    </article>
+                  ))}
                 </div>
-                <p className="mt-1 text-sm text-stone-600">
-                  {log.sets} sets × {log.reps} reps
-                  {log.weight !== null ? ` @ ${log.weight}` : ""}
-                </p>
-                <p className="mt-1 text-xs text-stone-500">
-                  Client: {log.clients?.first_name} {log.clients?.last_name}
-                </p>
-                <p className="mt-1 text-xs text-stone-500">
-                  Program: {log.workout_programs?.title ?? "Unassigned"}
-                </p>
-                {log.notes ? (
-                  <p className="mt-2 text-sm leading-6 text-stone-700">{log.notes}</p>
-                ) : null}
-                <form action={deleteExerciseLog} className="mt-2">
-                  <input type="hidden" name="logId" value={log.id} />
-                  <input type="hidden" name="redirectTo" value="/dashboard/client-logs" />
-                  <ConfirmSubmitButton
-                    confirmMessage={`Delete ${log.clients?.first_name ?? "this client"}'s ${log.exercise_name} entry from ${log.performed_on}? This can't be undone.`}
-                    className="text-xs font-medium text-red-600 hover:underline"
-                  >
-                    Delete entry
-                  </ConfirmSubmitButton>
-                </form>
-              </article>
+              </div>
             ))}
           </div>
         )}

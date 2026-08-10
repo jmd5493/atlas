@@ -37,7 +37,7 @@ function TrainerHome() {
         Your own training
       </p>
       <p className="mt-2 text-sm leading-6 text-stone-300">
-        Optional — link yourself as a client on the clients page to track your
+        Optional: link yourself as a client on the clients page to track your
         own workouts the same way your clients do.
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">

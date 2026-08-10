@@ -45,7 +45,7 @@ function getStatusMessage(
     case "already-self-linked":
       return {
         tone: "error",
-        text: "You already have a linked tracking profile — only one is allowed per trainer account.",
+        text: "You already have a linked tracking profile. Only one is allowed per trainer account.",
       };
     case "create-failed":
       return {
@@ -234,7 +234,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                     className="mt-0.5 h-4 w-4 rounded border-stone-300 text-gold-deep focus:ring-gold-deep"
                   />
                   <span>
-                    This is me — create a linked profile so I can track my own
+                    This is me: create a linked profile so I can track my own
                     workouts too. (One per trainer account.)
                   </span>
                 </label>
