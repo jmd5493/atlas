@@ -38,6 +38,31 @@ yarn-error.log*
 # vercel
 .vercel
 
+# opentofu / terraform
+# .terraform.lock.hcl is NOT ignored — it's committed on purpose, same
+# reproducibility reasoning as any other lockfile (records exact provider
+# versions/hashes so `tofu init` is deterministic across machines/CI).
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.tfplan
+
+# kubeconfig pulled down from the EC2/K3s box — cluster-admin credentials,
+# never committed
+kubeconfig
+*.kubeconfig
+.kube/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
