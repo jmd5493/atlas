@@ -112,6 +112,24 @@ stay fine.
   new program, or a client logs a workout. Nothing like this exists today;
   it's a real feature, not a small one — scope it properly if it gets picked
   up, don't bolt it on.
+- **3.6 CSV import for programs** — let a trainer import an
+  already-built program from a spreadsheet instead of re-entering it by
+  hand in the builder. Cheaper than it sounds: `createWorkoutProgram`/
+  `updateWorkoutProgramDays` already funnel through one shared, unit-tested
+  pipeline (`src/lib/programs/day-parsing.ts`) that takes a plain JSON
+  shape (day → workout blocks → exercises); a CSV importer is just a
+  second producer of that same shape, inheriting its existing validation
+  for free. Scoped version: fixed CSV column template (day number,
+  workout label, exercise name, sets, reps, weight, notes), parsed
+  client-side (`papaparse` — not currently a dependency; hand-rolled comma
+  splitting breaks on real spreadsheets), used to hydrate the existing
+  builder UI (`InitialWorkoutDay[]`) for the trainer to review before
+  saving, rather than inserting straight to the DB blind. **Explicitly not
+  in scope**: auto-importing a trainer's spreadsheet as-is, whatever
+  layout it happens to be in — that's an open-ended heuristics problem,
+  not a bounded feature. This means the trainer reformats into our
+  template once, not "upload anything and it works." No signal yet that
+  this is actually needed, same as 3.4.
 
 ---
 
@@ -132,6 +150,26 @@ Supabase's shared mailer rate limit.
 - **No branch protection** — deliberately, see Priority 1's note below.
 - **No automated migration pipeline** — see Priority 5.
 - **No CD** — nothing deploys the image `image.yml` pushes; see Priority 4.
+
+### Decided: three-tier branching model (`main` / `dev`, `stage` later)
+Was pure trunk-based — every `feature/*` branch forked from and PR'd
+straight back into `main`. Moving to: `feature/*` → PR → `dev` (integration
+branch, day-to-day work lands here) → periodically, `dev` → PR → `main`
+(release cut, always releasable, this is prod).
+
+`ci.yml` now triggers on PRs/pushes to `dev` too, or `dev` would have zero
+test coverage despite being where most work actually happens.
+**`image.yml` deliberately stays `main`-only** — a `dev` merge shouldn't
+push a new GHCR image with nothing to deploy it to, consistent with the
+Dev environment note in Part 3 (`dev` is still not a deployed environment).
+
+`stage`/`test` is the planned third tier, **not created yet** — no point
+adding a branch with no deploy destination before Part 3's stage namespace
+actually exists. Add it when that lands, sitting between `dev` and `main`.
+
+No branch-protection change from this — GitHub Free's private-repo
+limitation (above) applies identically to `dev`; manual review before
+merge stays the actual enforcement mechanism on both branches.
 
 ### Priority 1 — Get the fast checks into CI — **done**
 `.github/workflows/ci.yml`: `tsc --noEmit` → `eslint` → `vitest` unit tests →
