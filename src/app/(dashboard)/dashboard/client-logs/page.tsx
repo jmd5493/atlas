@@ -29,6 +29,17 @@ type ClientLogsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+// exercise_logs.client_id is a NOT NULL FK with ON DELETE CASCADE, so a log
+// can't outlive its client row at the DB level — but the joined `clients`
+// is still typed nullable (PostgREST to-one joins always are), and RLS on
+// `clients` could in principle disagree with RLS on `exercise_logs` for the
+// same trainer. Handle it explicitly rather than let a null silently turn
+// into blank text or an empty-string sort key.
+function getClientDisplayName(clients: ClientLogRow["clients"]) {
+  if (!clients) return "Unknown client";
+  return `${clients.first_name} ${clients.last_name}`.trim();
+}
+
 function getStatusMessage(status: string | undefined, errorCode: string | undefined, errorMessage: string | undefined) {
   switch (status) {
     case "deleted":
@@ -88,11 +99,9 @@ export default async function ClientLogsPage({ searchParams }: ClientLogsPagePro
       groups.set(log.client_id, group);
       return groups;
     }, new Map<string, ClientLogRow[]>()),
-  ).sort(([, logsA], [, logsB]) => {
-    const nameA = `${logsA[0].clients?.first_name ?? ""} ${logsA[0].clients?.last_name ?? ""}`;
-    const nameB = `${logsB[0].clients?.first_name ?? ""} ${logsB[0].clients?.last_name ?? ""}`;
-    return nameA.localeCompare(nameB);
-  });
+  ).sort(([, logsA], [, logsB]) =>
+    getClientDisplayName(logsA[0].clients).localeCompare(getClientDisplayName(logsB[0].clients)),
+  );
 
   return (
     <main className="min-h-screen bg-ink px-5 py-8 sm:px-6">
@@ -138,7 +147,7 @@ export default async function ClientLogsPage({ searchParams }: ClientLogsPagePro
             {groupedByClient.map(([clientId, clientLogs]) => (
               <div key={clientId}>
                 <h2 className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">
-                  {clientLogs[0].clients?.first_name} {clientLogs[0].clients?.last_name}
+                  {getClientDisplayName(clientLogs[0].clients)}
                   <span className="ml-2 font-normal text-stone-400">{clientLogs.length} entries</span>
                 </h2>
                 <div className="mt-3 space-y-3">
